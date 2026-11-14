@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Weather</title>
+    <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#4facfe">
+  <link rel="icon" href="icon-192.png">
+  <script>
+  try {
+    var t = localStorage.getItem("theme") ||
+      (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    document.documentElement.setAttribute("data-theme", t);
+  } catch (e) {}
+</script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="fx" class="fx"></canvas>
+  <button id="unit-btn" class="theme-btn unit-btn" aria-label="Switch between Celsius and Fahrenheit">°C</button>
+  <button id="theme-btn" class="theme-btn" aria-label="Toggle dark mode">🌙</button>
+  <main class="card">
+
+    <!-- PAGE: Home -->
+    <section class="page active" id="page-home">
+      <form id="search-form" class="search">
+        <div class="search-box">
+          <input id="search-input" type="text" placeholder="Search for a city..." autocomplete="off" required>
+          <ul id="suggestions" class="suggestions"></ul>
+        </div>
+        <button type="button" id="loc-btn" class="loc-btn" aria-label="Use my location">📍</button>
+        <button type="submit">Search</button>
+      </form>
+      <p class="geo-note" id="geo-note"></p>
+
+      <p class="date" id="date">Friday, 13 November</p>
+      <div class="city-row">
+        <h1 id="city">Galați</h1>
+        <button id="fav-btn" class="fav-btn" aria-label="Save city">☆</button>
+      </div>
+
+      <div class="icon" id="icon">⛅</div>
+      <p id="temp">12°</p>
+      <p id="condition">Partly cloudy</p>
+      <p class="rain" id="rain">💧 0% chance of rain</p>
+      <button type="button" id="updated" class="updated">Loading…</button>
+
+      <div class="nowcast" id="nowcast"></div>
+      <div class="alerts" id="alerts"></div>
+
+      <div class="details">
+        <div class="detail">
+          <span class="label">Feels like</span>
+          <span class="value" id="feels">10°</span>
+        </div>
+        <div class="detail">
+          <span class="label">Humidity</span>
+          <span class="value" id="humidity">68%</span>
+        </div>
+        <div class="detail">
+          <span class="label">Wind</span>
+          <span class="value" id="wind">14 km/h</span>
+        </div>
+      </div>
+
+      <details class="fold" id="fold-favorites" open>
+        <summary class="section-title">Favorite cities</summary>
+        <div class="favorites" id="favorites"></div>
+      </details>
+
+      <details class="fold" id="fold-details" open>
+        <summary class="section-title">More details</summary>
+        <div class="more-grid" id="more-details"></div>
+      </details>
+
+      <details class="fold" id="fold-air">
+        <summary class="section-title">Air quality <span class="fold-hint" id="air-hint"></span></summary>
+        <div class="air" id="air"></div>
+      </details>
+    </section>
+
+    <!-- PAGE: Today -->
+     <section class="page" id="page-today">
+  <h1 class="page-title">Today</h1>
+  <div class="temp-chart" id="chart-today"></div>
+  <div class="hour-list" id="today-list"></div>
+</section>
+    <section class="page" id="page-today">
+  <h1 class="page-title">Today</h1>
+  <div class="hour-list" id="today-list"></div>
+</section>
+
+    <!-- PAGE: 48 hours -->
+     <section class="page" id="page-48h">
+  <h1 class="page-title">Next 48 hours</h1>
+  <div class="temp-chart" id="chart-48h"></div>
+  <div class="hour-list" id="list-48h"></div>
+</section>
+   <section class="page" id="page-48h">
+  <h1 class="page-title">Next 48 hours</h1>
+  <div class="hour-list" id="list-48h"></div>
+</section>
+
+    <!-- PAGE: 14 days -->
+    <section class="page" id="page-14d">
+      <h1 class="page-title">14-day forecast</h1>
+      <div class="daily" id="daily"></div>
+    </section>
+
+    <!-- PAGE: Radar -->
+    <section class="page" id="page-radar">
+  <h1 class="page-title">Radar</h1>
+
+  <div id="radar-map" class="radar-map"></div>
+
+  <div class="radar-controls">
+    <button id="radar-play" class="radar-play" aria-label="Play or pause">⏸</button>
+    <input id="radar-slider" type="range" min="0" max="0" value="0">
+    <span id="radar-time" class="radar-time">Loading...</span>
+  </div>
+  <p class="radar-note">Past 2 hours of rain radar · Radar by <a href="https://www.rainviewer.com/" target="_blank" rel="noopener">RainViewer</a></p>
+
+  <h2 class="section-title">Chance of rain, next 12 hours</h2>
+  <div class="rain-bars" id="rain-bars"></div>
+</section>
+    <!-- PAGE: Hour detail (opened by tapping an hour) -->
+    <section class="page" id="page-hour">
+      <button class="back-btn" id="hour-back">‹ Back</button>
+      <p class="date" id="hour-title">Today · 19:00</p>
+      <div class="icon" id="hour-icon">⛅</div>
+      <p class="big-temp" id="hour-temp">12°</p>
+      <p id="hour-condition">Partly cloudy</p>
+
+      <div class="more-grid" id="hour-grid"></div>
+
+      <div class="hour-nav">
+        <button class="hour-nav-btn" id="hour-prev">‹ Earlier</button>
+        <button class="hour-nav-btn" id="hour-next">Later ›</button>
+      </div>
+    </section>
+</main>
+  <!-- Bottom menu bar -->
+    <nav class="tabbar">
+    <button class="tab active" data-page="page-home">
+      <svg class="ti" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>
+      Home
+    </button>
+    <button class="tab" data-page="page-today">
+      <svg class="ti" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+      Today
+    </button>
+    <button class="tab" data-page="page-48h">
+      <svg class="ti" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M12 7v5l3 2"/></svg>
+      48 hours
+    </button>
+    <button class="tab" data-page="page-14d">
+      <svg class="ti" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
+      14 days
+    </button>
+    <button class="tab" data-page="page-radar">
+      <svg class="ti" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><path d="M12 12l6.4-6.4"/></svg>
+      Radar
+    </button>
+  </nav>
+<script src="theme.js"></script>
+<script src="nav.js"></script>
+<script src="units.js"></script>
+<script src="icons.js"></script>
+<script src="alerts.js"></script>
+<script src="details.js"></script>
+<script src="air.js"></script>
+<script src="charts.js"></script>
+<script src="rain.js"></script>
+<script src="fx.js"></script>
+<script src="home.js"></script>
+<script src="script.js"></script>
+<script src="radar.js"></script>
+<script>
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("./sw.js").catch((error) => console.error(error));
+  }
+</script>
+</body>
+</html>

@@ -13,6 +13,8 @@ function applyTheme() {
   const theme = choice === "auto" ? (systemDark.matches ? "dark" : "light") : choice;
   document.documentElement.setAttribute("data-theme", theme);
   themeButton.textContent = theme === "dark" ? "☀️" : "🌙";
+  // The phone's status bar color
+  document.querySelector('meta[name="theme-color"]').setAttribute("content", theme === "dark" ? "#05070f" : "#4facfe");
 }
 
 function setTheme(choice) {

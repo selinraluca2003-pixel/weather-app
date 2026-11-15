@@ -5,11 +5,12 @@ const weatherNow = { index: 0, todayStart: 0 }; // where "now" and "today" are i
 
 const HOURLY_VARS =
   "temperature_2m,weather_code,precipitation_probability,wind_gusts_10m,uv_index,pressure_msl,visibility," +
-  "dew_point_2m,cloud_cover,wind_direction_10m,apparent_temperature,relative_humidity_2m,precipitation,wind_speed_10m,is_day";
+  "dew_point_2m,cloud_cover,wind_direction_10m,apparent_temperature,relative_humidity_2m,precipitation,wind_speed_10m,is_day," +
+  "snow_depth,freezing_level_height";
 const DAILY_VARS =
   "weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min," +
   "precipitation_probability_max,precipitation_sum,precipitation_hours,sunrise,sunset,daylight_duration," +
-  "sunshine_duration,uv_index_max,wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant";
+  "sunshine_duration,uv_index_max,wind_speed_10m_max,wind_gusts_10m_max,wind_direction_10m_dominant,snowfall_sum";
 
 function weatherURL(latitude, longitude) {
   return (
@@ -17,6 +18,7 @@ function weatherURL(latitude, longitude) {
     `&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code,is_day` +
     `&hourly=${HOURLY_VARS}&daily=${DAILY_VARS}` +
     `&minutely_15=precipitation&past_minutely_15=1&forecast_minutely_15=12` + // the rain countdown, in the same request
+    `&past_days=1` + // yesterday too, for "3° colder than yesterday"
     `&timezone=auto&forecast_days=14${units.param()}`
   );
 }
@@ -41,6 +43,19 @@ function saveCached(place, data) {
 // "Now" at the city itself, as "2026-11-15T11:20" (uses the city's own time zone from the forecast)
 function placeNowISO(data) {
   return new Date(Date.now() + data.utc_offset_seconds * 1000).toISOString().slice(0, 16);
+}
+
+// The daily lists start with yesterday (or an old day, for saved copies). Move those days out of the way,
+// so daily[0] is always today. Yesterday is kept in data.yesterday.
+function normalizeForecast(data) {
+  const today = placeNowISO(data).slice(0, 10);
+  const daily = data.daily;
+  while (daily.time.length > 1 && daily.time[0] < today) {
+    const old = {};
+    for (const key of Object.keys(daily)) old[key] = daily[key].shift();
+    data.yesterday = old;
+  }
+  return data;
 }
 
 // Load the weather for a place: show a saved copy straight away (if any), then the fresh one
@@ -79,6 +94,7 @@ async function getWeather(name, latitude, longitude) {
 // live: just downloaded (so current conditions are exact) or a saved copy (read them from the hourly list).
 // redraw: only the language or time format changed, so don't download extras again.
 function renderWeather(place, data, { live, savedAt, redraw = false }) {
+  normalizeForecast(data);
   latestWeather = data;
   latestMeta = { live, savedAt };
   currentPlace = place;
@@ -111,6 +127,7 @@ function renderWeather(place, data, { live, savedAt, redraw = false }) {
   document.getElementById("icon").innerHTML = weatherIcon(current.weather_code, current.is_day);
   document.getElementById("temp").textContent = Math.round(current.temperature_2m) + "°";
   document.getElementById("condition").textContent = weatherText(current.weather_code);
+  showYesterday(data, nowIndex, current);
   document.getElementById("rain").textContent = t("chanceOfRain", { p: h.precipitation_probability[nowIndex] });
   document.getElementById("feels").textContent = Math.round(current.apparent_temperature) + "°";
   document.getElementById("humidity").textContent = Math.round(current.relative_humidity_2m) + "%";
@@ -128,13 +145,37 @@ function renderWeather(place, data, { live, savedAt, redraw = false }) {
   showDetails(data, nowIndex);
   showRainCountdown(data, nowISO);
   showAlerts(data, nowIndex, place.latitude, place.longitude, live);
-  if (live && !redraw) showAir(place.latitude, place.longitude);
+  showSummary(data, nowIndex);
+  showActivities(data, nowIndex);
+  showSunMoon(data);
+  showSnow(data, nowIndex);
+  if (live && !redraw) {
+    showAir(place.latitude, place.longitude);
+    showClimate(place, data);
+    showSea(place);
+  } else {
+    renderClimate(place, data); // from the saved weekly copy, if there is one
+    if (redraw) renderSea();
+  }
   applyWeatherTheme(current.weather_code, current.is_day);
 
   // Keep an open hour or day page up to date
   const page = currentPageId();
   if (page === "page-hour") renderHourPage();
   if (page === "page-day") renderDayPage();
+  if (page === "page-metric") renderMetricPage();
+}
+
+// "3° colder than yesterday" (compares with the same hour yesterday)
+function showYesterday(data, nowIndex, current) {
+  const box = document.getElementById("vs-yesterday");
+  const before = nowIndex - 24;
+  if (before < 0 || data.hourly.time[before].slice(11, 13) !== data.hourly.time[nowIndex].slice(11, 13)) {
+    box.textContent = "";
+    return;
+  }
+  const diff = Math.round(current.temperature_2m - data.hourly.temperature_2m[before]);
+  box.textContent = diff === 0 ? t("vsSame") : diff > 0 ? t("vsWarmer", { n: diff }) : t("vsColder", { n: -diff });
 }
 
 // ---- Lists ----

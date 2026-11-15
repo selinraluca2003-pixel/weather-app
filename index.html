@@ -61,27 +61,32 @@
         <div class="city-row">
           <h1 id="city"><span class="skel skel-city"></span></h1>
           <button id="fav-btn" class="fav-btn" data-i18n-aria="saveCity" aria-label="Save city">☆</button>
+          <button id="share-btn" class="fav-btn share-btn" data-i18n-aria="share" aria-label="Share">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7 8l5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>
+          </button>
         </div>
 
         <div class="icon" id="icon"><span class="skel skel-icon"></span></div>
         <p id="temp"><span class="skel skel-temp"></span></p>
         <p id="condition"><span class="skel skel-line"></span></p>
-        <p class="rain" id="rain"><span class="skel skel-small"></span></p>
+        <p class="vs-yesterday" id="vs-yesterday"></p>
+        <p class="rain tappable" id="rain" data-metric="rain" role="button" tabindex="0"><span class="skel skel-small"></span></p>
         <button type="button" id="updated" class="updated">&nbsp;</button>
+        <p class="summary" id="summary"></p>
 
         <div class="nowcast" id="nowcast"></div>
         <div class="alerts" id="alerts"></div>
 
         <div class="details">
-          <div class="detail">
+          <div class="detail tappable" data-metric="feels" role="button" tabindex="0">
             <span class="label" data-i18n="feelsLike">Feels like</span>
             <span class="value" id="feels"><span class="skel skel-small"></span></span>
           </div>
-          <div class="detail">
+          <div class="detail tappable" data-metric="humidity" role="button" tabindex="0">
             <span class="label" data-i18n="humidity">Humidity</span>
             <span class="value" id="humidity"><span class="skel skel-small"></span></span>
           </div>
-          <div class="detail">
+          <div class="detail tappable" data-metric="wind" role="button" tabindex="0">
             <span class="label" data-i18n="wind">Wind</span>
             <span class="value" id="wind"><span class="skel skel-small"></span></span>
           </div>
@@ -100,9 +105,26 @@
           <div class="favorites" id="favorites"></div>
         </details>
 
+        <details class="fold" id="fold-activities" open>
+          <summary class="section-title" data-i18n="activities">Activities</summary>
+          <div class="activities" id="activities"></div>
+        </details>
+
         <details class="fold" id="fold-details" open>
           <summary class="section-title" data-i18n="moreDetails">More details</summary>
           <div class="more-grid" id="more-details"></div>
+          <div class="more-grid climate" id="climate"></div>
+          <div id="sun-card"></div>
+        </details>
+
+        <details class="fold" id="fold-snow" open hidden>
+          <summary class="section-title" data-i18n="snow">Snow</summary>
+          <div id="snow"></div>
+        </details>
+
+        <details class="fold" id="fold-sea" open hidden>
+          <summary class="section-title" data-i18n="sea">Sea</summary>
+          <div id="sea"></div>
         </details>
 
         <details class="fold" id="fold-air">
@@ -130,18 +152,26 @@
     <section class="page" id="page-14d">
       <h1 class="page-title" data-i18n="forecast14">14-day forecast</h1>
       <div class="daily" id="daily"></div>
+      <button type="button" class="link-btn" id="models-btn">📊 <span data-i18n="compareModels">Compare forecast models</span> ›</button>
     </section>
 
     <!-- PAGE: Radar -->
     <section class="page" id="page-radar">
       <h1 class="page-title" data-i18n="radar">Radar</h1>
+      <div class="seg map-layers" id="map-layers" role="radiogroup">
+        <button type="button" role="radio" aria-checked="true" data-layer="rain" data-i18n="layerRain">Rain</button>
+        <button type="button" role="radio" aria-checked="false" data-layer="wind" data-i18n="layerWind">Wind</button>
+        <button type="button" role="radio" aria-checked="false" data-layer="temp" data-i18n="layerTemp">Temperature</button>
+      </div>
       <div id="radar-map" class="radar-map"></div>
-      <div class="radar-controls">
+      <div class="map-legend" id="map-legend"></div>
+      <p class="radar-note" id="map-note" hidden></p>
+      <div class="radar-controls" id="radar-controls">
         <button id="radar-play" class="radar-play" data-i18n-aria="playPause" aria-label="Play or pause">⏸</button>
         <input id="radar-slider" type="range" min="0" max="0" value="0">
         <span id="radar-time" class="radar-time"></span>
       </div>
-      <p class="radar-note"><span data-i18n="radarNote">Past 2 hours of rain radar · Radar by</span> <a href="https://www.rainviewer.com/" target="_blank" rel="noopener">RainViewer</a></p>
+      <p class="radar-note" id="radar-note"><span data-i18n="radarNote">Past 2 hours of rain radar · Radar by</span> <a href="https://www.rainviewer.com/" target="_blank" rel="noopener">RainViewer</a></p>
       <h2 class="section-title" data-i18n="rainNext12">Chance of rain, next 12 hours</h2>
       <div class="rain-bars" id="rain-bars"></div>
     </section>
@@ -179,6 +209,25 @@
         <button class="hour-nav-btn" id="day-prev" data-i18n="prevDay">‹ Previous day</button>
         <button class="hour-nav-btn" id="day-next" data-i18n="nextDay">Next day ›</button>
       </div>
+    </section>
+
+    <!-- PAGE: One value's chart (tap UV, wind, humidity...) -->
+    <section class="page sub-page" id="page-metric">
+      <button class="back-btn" data-back data-i18n="back">‹ Back</button>
+      <h1 class="page-title" id="metric-title"></h1>
+      <p class="metric-now" id="metric-now"></p>
+      <h2 class="section-title" data-i18n="next48">Next 48 hours</h2>
+      <div class="temp-chart" id="chart-metric"></div>
+      <p class="metric-stats" id="metric-stats"></p>
+      <p class="metric-explain" id="metric-explain"></p>
+    </section>
+
+    <!-- PAGE: Forecast models -->
+    <section class="page sub-page" id="page-models">
+      <button class="back-btn" data-back data-i18n="back">‹ Back</button>
+      <h1 class="page-title" data-i18n="modelsTitle">Forecast models</h1>
+      <p class="metric-explain" data-i18n="modelsIntro"></p>
+      <div id="models-body"></div>
     </section>
 
     <!-- PAGE: Settings -->
@@ -226,12 +275,20 @@
   <script src="charts.js"></script>
   <script src="rain.js"></script>
   <script src="fx.js"></script>
+  <script src="astro.js"></script>
+  <script src="insights.js"></script>
+  <script src="climate.js"></script>
+  <script src="sea.js"></script>
+  <script src="metric.js"></script>
+  <script src="models.js"></script>
+  <script src="share.js"></script>
   <script src="home.js"></script>
   <script src="favorites.js"></script>
   <script src="settings.js"></script>
   <script src="gestures.js"></script>
   <script src="script.js"></script>
   <script src="radar.js"></script>
+  <script src="maps.js"></script>
   <script>
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("./sw.js").catch((error) => console.error(error));

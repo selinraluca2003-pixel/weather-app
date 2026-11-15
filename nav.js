@@ -66,3 +66,13 @@ tabs.forEach((tab) => tab.addEventListener("click", () => goToTab(tab.dataset.pa
 document.addEventListener("click", (event) => {
   if (event.target.closest("[data-back]")) goBack();
 });
+
+// Home screen shortcuts open the app with ?page=radar (or today, 14d): jump straight there
+(function openShortcutPage() {
+  const shortcuts = { radar: "page-radar", today: "page-today", "48h": "page-48h", "14d": "page-14d" };
+  const page = shortcuts[new URLSearchParams(location.search).get("page")];
+  if (!page) return;
+  history.replaceState(null, "", location.pathname); // tidy the address, so a reload opens Home again
+  // Wait until every script has loaded (the radar needs radar.js)
+  window.addEventListener("load", () => showPage(page));
+})();

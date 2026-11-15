@@ -30,7 +30,8 @@ function renderDayPage() {
     detailCard(t("feelsLike"), t("dayFeelsValue", { max: Math.round(daily.apparent_temperature_max[d]), min: Math.round(daily.apparent_temperature_min[d]) }), t("dayFeelsSub")) +
     detailCard(t("uvIndex"), uv.toFixed(1), uvLabel(uv)) +
     detailCard(t("sunriseSunset"), `${fmtTime(daily.sunrise[d])} – ${fmtTime(daily.sunset[d])}`, t("daylight", { d: formatDuration(daylight) }), true) +
-    detailCard(t("sunshine"), formatDuration(sunshine), t("sunshineSub", { pct: daylight ? Math.round((sunshine / daylight) * 100) : 0 }));
+    detailCard(t("sunshine"), formatDuration(sunshine), t("sunshineSub", { pct: daylight ? Math.round((sunshine / daylight) * 100) : 0 })) +
+    dayNormalCard(date, daily.temperature_2m_max[d]);
 
   // The 24 hours of this day: chart + tappable list
   const start = data.hourly.time.findIndex((time) => time.startsWith(date));
@@ -69,3 +70,10 @@ document.addEventListener("click", (event) => {
 
 document.getElementById("day-prev").addEventListener("click", () => changeDay(-1));
 document.getElementById("day-next").addEventListener("click", () => changeDay(1));
+
+// "Normal: 9° / 1°" for this date, once the history has been downloaded
+function dayNormalCard(date, forecastMax) {
+  const c = currentPlace ? climateFor(currentPlace, date) : null;
+  if (!c) return "";
+  return detailCard(t("normalLabel"), `${Math.round(c.normalMax)}° / ${Math.round(c.normalMin)}°`, normalDiffText(forecastMax - c.normalMax));
+}

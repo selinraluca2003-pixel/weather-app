@@ -59,10 +59,11 @@ function windArrow(degrees) {
   return `<span class="wind-arrow" style="transform: rotate(${degrees + 180}deg)">↑</span>`;
 }
 
-// One small card
-function detailCard(label, value, sub, small = false) {
+// One small card. With a metric name ("uv", "wind"...) it becomes tappable and opens that value's chart.
+function detailCard(label, value, sub, small = false, metric = null) {
+  const tap = metric ? ` data-metric="${metric}" role="button" tabindex="0"` : "";
   return `
-    <div class="more-card">
+    <div class="more-card${metric ? " tappable" : ""}"${tap}>
       <span class="label">${label}</span>
       <span class="more-value ${small ? "small" : ""}">${value}</span>
       <span class="more-sub">${sub}</span>
@@ -79,12 +80,12 @@ function showDetails(data, nowIndex) {
   const moon = moonPhase();
 
   document.getElementById("more-details").innerHTML =
-    detailCard(t("uvIndex"), uv.toFixed(1), t("uvPeak", { label: uvLabel(uv), n: Math.round(daily.uv_index_max[0]) })) +
-    detailCard(t("pressure"), `${Math.round(h.pressure_msl[i])} hPa`, t("seaLevel")) +
-    detailCard(t("visibility"), units.visibility(h.visibility[i]), visibilityLabel(h.visibility[i])) +
-    detailCard(t("dewPoint"), `${Math.round(dew)}°`, dewLabel(units.toCelsius(dew))) +
-    detailCard(t("cloudCover"), `${Math.round(h.cloud_cover[i])}%`, cloudLabel(h.cloud_cover[i])) +
-    detailCard(t("windFrom"), `${windArrow(h.wind_direction_10m[i])} ${compass(h.wind_direction_10m[i])}`, t("gusts", { n: Math.round(h.wind_gusts_10m[i]), u: units.windUnit() })) +
+    detailCard(t("uvIndex"), uv.toFixed(1), t("uvPeak", { label: uvLabel(uv), n: Math.round(daily.uv_index_max[0]) }), false, "uv") +
+    detailCard(t("pressure"), `${Math.round(h.pressure_msl[i])} hPa`, t("seaLevel"), false, "pressure") +
+    detailCard(t("visibility"), units.visibility(h.visibility[i]), visibilityLabel(h.visibility[i]), false, "visibility") +
+    detailCard(t("dewPoint"), `${Math.round(dew)}°`, dewLabel(units.toCelsius(dew)), false, "dew") +
+    detailCard(t("cloudCover"), `${Math.round(h.cloud_cover[i])}%`, cloudLabel(h.cloud_cover[i]), false, "clouds") +
+    detailCard(t("windFrom"), `${windArrow(h.wind_direction_10m[i])} ${compass(h.wind_direction_10m[i])}`, t("gusts", { n: Math.round(h.wind_gusts_10m[i]), u: units.windUnit() }), false, "wind") +
     detailCard(t("sunriseSunset"), `${fmtTime(daily.sunrise[0])} – ${fmtTime(daily.sunset[0])}`, t("daylight", { d: formatDuration(daily.daylight_duration[0]) }), true) +
     detailCard(t("moon"), `${moon.icon} ${moon.lit}%`, moon.name);
 }

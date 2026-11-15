@@ -90,6 +90,7 @@ async function loadRadarFrames() {
     radar.index = 0;
 
     radarSlider.max = radar.frames.length - 1;
+    if (mapLayer !== "rain") return; // you switched to wind or temperature while it loaded
     showRadarFrame(0);
     startRadar();
   } catch (error) {
@@ -110,6 +111,11 @@ function openRadar() {
       radar.marker.setLatLng([currentPlace.latitude, currentPlace.longitude]);
     }
 
+    // Wind or temperature layer chosen: show that instead of the rain radar
+    if (mapLayer !== "rain") {
+      setMapLayer(mapLayer);
+      return;
+    }
     if (Date.now() - radar.loadedAt > 5 * 60 * 1000) {
       loadRadarFrames();
     } else if (radar.frames.length) {

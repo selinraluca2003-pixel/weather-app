@@ -60,7 +60,7 @@ document.addEventListener("touchend", (event) => {
   const point = event.changedTouches[0];
   const dx = point.clientX - touch.x;
   const dy = point.clientY - touch.y;
-  const quick = Date.now() - touch.time < 800;
+  const quick = Date.now() - touch.time < 1000; // a flick, not a slow drag
 
   if (touch.pullDistance > 0) {
     if (touch.pullDistance >= PTR_TRIGGER) pullRefresh();

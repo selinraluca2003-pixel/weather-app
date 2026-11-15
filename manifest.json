@@ -12,5 +12,25 @@
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
     { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Radar",
+      "short_name": "Radar",
+      "url": "./?page=radar",
+      "icons": [{ "src": "shortcut-radar.png", "sizes": "96x96", "type": "image/png" }]
+    },
+    {
+      "name": "Today hour by hour",
+      "short_name": "Today",
+      "url": "./?page=today",
+      "icons": [{ "src": "shortcut-today.png", "sizes": "96x96", "type": "image/png" }]
+    },
+    {
+      "name": "14-day forecast",
+      "short_name": "14 days",
+      "url": "./?page=14d",
+      "icons": [{ "src": "shortcut-days.png", "sizes": "96x96", "type": "image/png" }]
+    }
   ]
 }

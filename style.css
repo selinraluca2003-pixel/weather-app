@@ -511,8 +511,8 @@ body::before {
   transition: opacity 1s ease;
 }
 body[data-time="night"]::before { opacity: 0.35; }
-:root[data-theme="dark"] body::before { opacity: 0.5; }
-:root[data-theme="dark"] body[data-time="night"]::before { opacity: 0.65; }
+:root[data-theme="dark"] body::before { opacity: 0.8; }
+:root[data-theme="dark"] body[data-time="night"]::before { opacity: 0.88; }
 
 /* Rain / snow canvas */
 .fx {
@@ -1120,3 +1120,211 @@ button.day-row:hover { background: rgba(255, 255, 255, 0.08); }
   .radar-map { height: 480px; }
   .tabbar { width: min(560px, calc(100% - 32px)); }
 }
+
+/* =========================================================
+   Round 2: yesterday, summary, activities, sun & moon, charts,
+   models, sea & snow, map layers
+   ========================================================= */
+[hidden] { display: none !important; }
+
+/* Share button next to the star */
+.share-btn svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vertical-align: middle;
+}
+.city-row .fav-btn { padding: 4px; }
+
+.vs-yesterday { margin-top: 4px; font-size: 0.85rem; opacity: 0.8; }
+.vs-yesterday:empty { display: none; }
+
+.summary {
+  margin: 14px 0 0;
+  padding: 12px 14px;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+}
+.summary:empty { display: none; }
+
+/* Things you can tap to open a chart */
+.tappable { cursor: pointer; }
+.more-card.tappable { position: relative; transition: background 0.2s; }
+.more-card.tappable::after {
+  content: "›";
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  opacity: 0.5;
+}
+.more-card.tappable:hover, .detail.tappable:hover { background: rgba(255, 255, 255, 0.2); }
+.detail.tappable { padding: 6px 8px; margin: -6px -8px; border-radius: 12px; transition: background 0.2s; }
+.rain.tappable:hover { background: rgba(255, 255, 255, 0.26); }
+.tappable:focus-visible { outline: 2px solid white; outline-offset: 2px; }
+
+/* Normal for today + records */
+.climate { margin-top: 10px; }
+.climate:empty { display: none; }
+.record { display: block; font-size: 0.95rem; }
+
+/* Sun & moon card */
+#sun-card { margin-top: 10px; }
+.sun-card { gap: 6px; }
+.sun-arc { display: block; width: 100%; max-width: 360px; height: auto; margin: 4px auto 0; }
+.arc-horizon { stroke: rgba(255, 255, 255, 0.3); stroke-width: 1; }
+.arc-path { fill: none; stroke: rgba(255, 255, 255, 0.35); stroke-width: 2; stroke-dasharray: 4 5; }
+.arc-done { fill: none; stroke: #ffd54a; stroke-width: 3; stroke-linecap: round; }
+.arc-glow { fill: rgba(255, 213, 74, 0.3); }
+.arc-sun { fill: #ffd54a; }
+.arc-label { fill: white; font-size: 12px; opacity: 0.8; }
+.sun-status { text-align: center; font-size: 0.85rem; opacity: 0.85; }
+.sun-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 8px;
+  font-size: 0.85rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+.sun-row span:last-child { text-align: right; opacity: 0.9; }
+
+/* Activities */
+.activities { text-align: left; }
+.act-window { margin-bottom: 8px; font-size: 0.8rem; opacity: 0.75; }
+.activity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+}
+.activity.wear { background: rgba(255, 255, 255, 0.16); }
+.act-icon { font-size: 1.4rem; }
+.act-text { flex: 1; min-width: 0; }
+.act-text strong { display: block; font-size: 0.92rem; }
+.act-text small { display: block; font-size: 0.76rem; opacity: 0.75; }
+.act-rating {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+}
+.act-rating.great { background: rgba(61, 220, 151, 0.4); }
+.act-rating.good  { background: rgba(155, 229, 100, 0.35); }
+.act-rating.fair  { background: rgba(255, 213, 74, 0.35); }
+.act-rating.poor  { background: rgba(255, 82, 82, 0.4); }
+
+/* One value's chart */
+.metric-now { margin: 4px 0 6px; font-size: 3rem; font-weight: 200; text-align: left; }
+.metric-bar { fill: rgba(110, 198, 255, 0.75); }
+.metric-stats { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; text-align: left; opacity: 0.9; }
+.metric-explain { margin-top: 14px; font-size: 0.88rem; line-height: 1.5; text-align: left; opacity: 0.85; }
+.lg-bar { height: 8px; border-top: none; background: rgba(110, 198, 255, 0.75); border-radius: 2px; }
+
+/* Forecast models */
+.link-btn {
+  display: block;
+  width: 100%;
+  margin-top: 16px;
+  padding: 14px;
+  font: inherit;
+  font-weight: 600;
+  color: white;
+  text-align: left;
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 16px;
+  cursor: pointer;
+}
+.link-btn:hover { background: rgba(255, 255, 255, 0.22); }
+.models-summary { margin: 14px 0 4px; padding: 12px 14px; text-align: left; font-size: 0.92rem; background: rgba(255, 255, 255, 0.12); border-radius: 14px; }
+.model-table { margin-top: 6px; }
+.model-row {
+  display: grid;
+  grid-template-columns: 1.1fr repeat(3, 1fr) 1.3fr;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 4px;
+  font-size: 0.9rem;
+  text-align: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+.model-row:last-child { border-bottom: none; }
+.model-row small { display: block; font-size: 0.72rem; opacity: 0.65; }
+.model-day { text-align: left; font-weight: 600; }
+.model-head { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+.model-row .act-rating { justify-self: end; }
+
+/* Map layers */
+.map-layers { margin: 12px 0 0; }
+.map-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 450; /* above the map tiles, below Leaflet's buttons */
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.map-legend { margin-top: 10px; }
+.map-legend:empty { display: none; }
+.legend-bar { height: 8px; border-radius: 999px; }
+.legend-scale { display: flex; justify-content: space-between; margin-top: 4px; font-size: 0.72rem; opacity: 0.8; }
+
+@media (min-width: 900px) {
+  .metric-now { font-size: 3.4rem; }
+}
+
+
+/* =========================================================
+   Darker dark mode
+   ========================================================= */
+:root[data-theme="dark"] {
+  --glass: rgba(255, 255, 255, 0.045);
+  --suggest-bg: rgba(14, 16, 28, 0.98);
+  --shadow: rgba(0, 0, 0, 0.6);
+}
+:root[data-theme="dark"] body { background-color: #05070f; }
+:root[data-theme="dark"] body::before { background: #03040a; }
+
+/* The animated sky stays, but quieter */
+:root[data-theme="dark"] .fx { opacity: 0.35; }
+
+/* Softer borders */
+:root[data-theme="dark"] .card,
+:root[data-theme="dark"] .tabbar,
+:root[data-theme="dark"] .theme-btn,
+:root[data-theme="dark"] .radar-map,
+:root[data-theme="dark"] .back-btn,
+:root[data-theme="dark"] .hour-nav-btn,
+:root[data-theme="dark"] .link-btn,
+:root[data-theme="dark"] .loc-btn,
+:root[data-theme="dark"] .search input { border-color: rgba(255, 255, 255, 0.1); }
+
+/* Panels inside the card: just a hint lighter than the background */
+:root[data-theme="dark"] :is(.more-card, .fav-card, .activity, .summary, .nc, .temp-chart, .pollen-row,
+  .models-summary, .link-btn, .seg, .rain, .search input, .loc-btn, .back-btn, .hour-nav-btn,
+  .banner, .alert.none, .ptr) { background-color: rgba(255, 255, 255, 0.05); }
+:root[data-theme="dark"] :is(.activity.wear, .hour-row.now, .tab.active, .seg button[aria-checked="true"]) {
+  background: rgba(255, 255, 255, 0.12);
+}
+:root[data-theme="dark"] .seg button[aria-checked="true"],
+:root[data-theme="dark"] .search button,
+:root[data-theme="dark"] .banner button { color: white; background: rgba(120, 140, 255, 0.35); }
+:root[data-theme="dark"] .more-card.tappable:hover,
+:root[data-theme="dark"] .fav-card:hover,
+:root[data-theme="dark"] .hour-row:hover,
+:root[data-theme="dark"] button.day-row:hover { background: rgba(255, 255, 255, 0.09); }
+
+/* Slightly dimmer text so it doesn't glare in the dark */
+:root[data-theme="dark"] body { color: #e8eaf2; }

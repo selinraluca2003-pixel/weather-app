@@ -1,6 +1,6 @@
 // ----- Service worker: lets the app install and open offline -----
 // Change the number when you publish big changes, so phones throw away the old copies.
-const CACHE = "weather-v3";
+const CACHE = "weather-v4";
 
 const APP_FILES = [
   "./", "./index.html", "./style.css", "./manifest.json",
@@ -8,6 +8,8 @@ const APP_FILES = [
   "./core.js", "./i18n.js", "./theme.js", "./nav.js", "./units.js", "./icons.js", "./alerts.js",
   "./details.js", "./day.js", "./air.js", "./charts.js", "./rain.js", "./fx.js",
   "./home.js", "./favorites.js", "./settings.js", "./gestures.js", "./script.js", "./radar.js",
+  "./astro.js", "./insights.js", "./climate.js", "./sea.js", "./metric.js", "./models.js", "./share.js", "./maps.js",
+  "./shortcut-radar.png", "./shortcut-today.png", "./shortcut-days.png",
 ];
 
 // Install: save the app's own files (one missing file won't break the install)

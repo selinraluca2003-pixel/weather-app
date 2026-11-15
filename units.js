@@ -1,6 +1,6 @@
 // ----- Units: °C / °F -----
 const units = {
-  system: "metric",
+  system: store.get("units") === "imperial" ? "imperial" : "metric",
   isImperial() { return this.system === "imperial"; },
   // extra text added to every weather request
   param() { return this.isImperial() ? "&temperature_unit=fahrenheit&wind_speed_unit=mph" : ""; },
@@ -11,26 +11,22 @@ const units = {
   showWind(kmh) {
     return this.isImperial() ? Math.round(kmh / 1.609) + " mph" : Math.round(kmh) + " km/h";
   },
+  visibility(meters) {
+    const km = meters / 1000;
+    return this.isImperial() ? `${Math.round(km / 1.609)} mi` : `${Math.round(km)} km`;
+  },
 };
 
-try {
-  if (localStorage.getItem("units") === "imperial") units.system = "imperial";
-} catch (error) {}
-
 const unitButton = document.getElementById("unit-btn");
-unitButton.textContent = units.isImperial() ? "°F" : "°C";
 
-unitButton.addEventListener("click", () => {
-  units.system = units.isImperial() ? "metric" : "imperial";
+function setUnits(system) {
+  units.system = system;
+  store.set("units", system);
   unitButton.textContent = units.isImperial() ? "°F" : "°C";
-
-  try {
-    localStorage.setItem("units", units.system);
-  } catch (error) {
-    console.error(error);
-  }
-
   // Reload the current city and the favorites in the new units
-  if (currentPlace) getWeather(currentPlace.name, currentPlace.latitude, currentPlace.longitude);
-  renderFavorites();
-});
+  refreshWeather();
+  if (typeof renderSettings === "function") renderSettings();
+}
+
+unitButton.textContent = units.isImperial() ? "°F" : "°C";
+unitButton.addEventListener("click", () => setUnits(units.isImperial() ? "metric" : "imperial"));

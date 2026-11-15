@@ -17,12 +17,14 @@
   --btn-text: #1e2340;
   --shadow: rgba(0, 0, 0, 0.5);
 }
+html { overscroll-behavior-y: contain; } /* turns off the browser's own pull-to-refresh, we have ours */
+
 body {
-    min-height: 100dvh;
+  min-height: 100dvh;
   display: grid;
   place-items: start center;
-  padding-bottom: 110px;
-  padding: 70px 20px 20px;
+  padding: 70px 20px 110px; /* the bottom space keeps the menu bar from covering the last items */
+  overscroll-behavior-y: contain;
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   color: white;
    background: linear-gradient(135deg, var(--bg-start), var(--bg-end));
@@ -149,30 +151,6 @@ h1 {
   opacity: 0.7;
 }
 
-/* Hourly strip: scrolls sideways */
-.hourly {
-  display: flex;
-  gap: 10px;
-  overflow-x: auto;
-  padding-bottom: 8px;
-}
-
-.hour {
-  flex: 0 0 auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  min-width: 56px;
-  padding: 12px 8px;
-  background: rgba(255, 255, 255, 0.12);
-  border-radius: 16px;
-  font-size: 0.85rem;
-}
-
-.hour .emoji { font-size: 1.4rem; }
-.hour .hour-temp { font-weight: 600; }
-
 /* Daily forecast: one row per day */
 .day {
   display: flex;
@@ -238,7 +216,6 @@ h1 {
   transition: background 0.2s, opacity 0.2s;
 }
 
-.tab span { font-size: 1.3rem; }
 
 .tab.active {
   background: rgba(255, 255, 255, 0.25);
@@ -904,3 +881,242 @@ button.hour-row {
 
 .lg { display: inline-block; width: 18px; height: 0; border-top: 2.5px solid #fff; }
 .lg-dash { border-top: 2px dashed #9fd8ff; }
+/* =========================================================
+   Update: settings, day page, gestures, favorites, wide screens
+   ========================================================= */
+
+/* Keyboard users can always see where they are */
+button:focus-visible, summary:focus-visible, a:focus-visible {
+  outline: 2px solid white;
+  outline-offset: 2px;
+}
+
+/* Round buttons in the top-right corner */
+.top-actions {
+  position: fixed;
+  top: calc(14px + env(safe-area-inset-top, 0px));
+  right: 14px;
+  z-index: 20;
+  display: flex;
+  gap: 8px;
+}
+.top-actions .theme-btn { position: static; color: white; }
+.top-actions .ti {
+  width: 20px;
+  height: 20px;
+  vertical-align: middle;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Loading placeholders: soft shimmering blocks until the first weather arrives */
+.skel {
+  display: inline-block;
+  vertical-align: middle;
+  border-radius: 10px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.12) 25%, rgba(255,255,255,0.28) 50%, rgba(255,255,255,0.12) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+.skel-city  { width: 150px; height: 1.6rem; }
+.skel-icon  { width: 5rem; height: 5rem; border-radius: 50%; }
+.skel-temp  { width: 120px; height: 4.5rem; border-radius: 18px; }
+.skel-line  { width: 110px; height: 1rem; }
+.skel-small { width: 44px; height: 0.9rem; }
+@keyframes shimmer { to { background-position: -200% 0; } }
+
+/* Offline / error message */
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 10px 12px 10px 14px;
+  text-align: left;
+  font-size: 0.85rem;
+  background: rgba(255, 152, 0, 0.25);
+  border: 1px solid rgba(255, 200, 120, 0.5);
+  border-radius: 14px;
+}
+.banner[hidden] { display: none; }
+.banner span { flex: 1; }
+.banner button {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  font: inherit;
+  font-weight: 600;
+  color: var(--btn-text);
+  background: white;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+/* Pull-to-refresh indicator */
+.ptr {
+  position: fixed;
+  top: 0;
+  left: 50%;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  font-size: 0.8rem;
+  background: var(--suggest-bg);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 999px;
+  box-shadow: 0 6px 20px var(--shadow);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -60px);
+  transition: opacity 0.2s, transform 0.25s;
+}
+.ptr.visible { opacity: 1; }
+.ptr-icon { display: inline-block; font-weight: 700; transition: transform 0.2s; }
+.ptr.armed .ptr-icon { transform: rotate(180deg); }
+.ptr.loading .ptr-icon { animation: wi-spin 0.8s linear infinite; }
+.ptr.loading .ptr-icon::before { content: "↻"; }
+.ptr.loading .ptr-icon { font-size: 0; }
+.ptr.loading .ptr-icon::before { font-size: 0.95rem; }
+
+/* Slide in from the side when swiping between tabs */
+@keyframes slideFromRight { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: none; } }
+@keyframes slideFromLeft  { from { opacity: 0; transform: translateX(-40px); } to { opacity: 1; transform: none; } }
+body[data-slide="next"] .page.active { animation: slideFromRight 0.3s ease; }
+body[data-slide="prev"] .page.active { animation: slideFromLeft 0.3s ease; }
+.nudge-next { animation: slideFromRight 0.25s ease; }
+.nudge-prev { animation: slideFromLeft 0.25s ease; }
+
+/* Days in the 14-day list are buttons now (tap to open the day) */
+button.day-row {
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  background: none;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 0;
+  cursor: pointer;
+}
+button.day-row:last-child { border-bottom: none; }
+button.day-row:hover { background: rgba(255, 255, 255, 0.08); }
+.day-row .chev { margin-left: 6px; }
+
+/* Day detail page */
+.day-range { margin-top: 8px; font-size: 1.8rem; font-weight: 300; }
+#day-title { font-size: 1.1rem; font-weight: 600; opacity: 1; }
+#day-condition { margin: 6px 0 8px; font-size: 1.1rem; opacity: 0.9; }
+#page-day .more-grid { margin-top: 4px; }
+
+/* Settings page */
+.settings { display: flex; flex-direction: column; gap: 22px; margin-top: 18px; text-align: left; }
+.setting-title {
+  margin-bottom: 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.7;
+}
+.setting-hint { margin-top: 6px; font-size: 0.8rem; opacity: 0.75; }
+.seg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+}
+.seg button {
+  flex: 1 1 auto;
+  min-height: 40px;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 0.88rem;
+  color: white;
+  background: none;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.seg button:hover { background: rgba(255, 255, 255, 0.12); }
+.seg button[aria-checked="true"] {
+  font-weight: 600;
+  color: var(--btn-text);
+  background: white;
+}
+
+/* Favorites: drag handle, high/low */
+.fav-card { padding-left: 6px; gap: 6px; touch-action: pan-y; }
+.fav-handle {
+  flex-shrink: 0;
+  width: 30px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  color: white;
+  background: none;
+  border: none;
+  border-radius: 10px;
+  opacity: 0.55;
+  cursor: grab;
+  touch-action: none; /* the finger drags the card instead of scrolling the page */
+}
+.fav-handle svg { width: 18px; height: 18px; fill: currentColor; }
+.fav-handle:hover { opacity: 1; }
+.fav-main { flex: 1; min-width: 0; }
+.fav-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fav-temps { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.1; }
+.fav-hilo { font-size: 0.72rem; opacity: 0.75; white-space: nowrap; }
+.fav-card.dragging {
+  position: relative;
+  z-index: 5;
+  cursor: grabbing;
+  background: rgba(255, 255, 255, 0.28);
+  box-shadow: 0 12px 28px var(--shadow);
+}
+.fav-card.dragging .fav-handle { cursor: grabbing; opacity: 1; }
+
+/* "Animations: Off" in settings */
+.no-motion *, .no-motion *::before, .no-motion *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* Only on wide screens */
+.wide-only { display: none; }
+
+/* ---------- Wide screens (PC) ---------- */
+@media (min-width: 900px) {
+  body { padding: 80px 32px 120px; }
+  .card { max-width: 1040px; padding: 40px 44px; }
+
+  /* Home: current weather on the left, chart and sections on the right */
+  #page-home.active {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+    gap: 44px;
+    align-items: start;
+  }
+  .home-side { text-align: left; }
+  .home-side .wide-only { display: block; }
+  .home-side .wide-only .section-title { margin-top: 0; }
+  .home-side .fold:first-of-type summary { margin-top: 18px; }
+
+  /* Other pages: comfortable reading width, centered */
+  .page:not(#page-home) { max-width: 760px; margin: 0 auto; }
+
+  /* Hour lists in two columns */
+  .hour-list { display: grid; grid-template-columns: 1fr 1fr; column-gap: 18px; }
+
+  .more-grid { grid-template-columns: repeat(3, 1fr); }
+  .home-side .more-grid { grid-template-columns: repeat(2, 1fr); }
+  .radar-map { height: 480px; }
+  .tabbar { width: min(560px, calc(100% - 32px)); }
+}

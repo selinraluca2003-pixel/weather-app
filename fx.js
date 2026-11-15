@@ -96,8 +96,15 @@ function setWeatherFx(category) {
   cancelAnimationFrame(fxFrame);
   fxCtx.clearRect(0, 0, fxCanvas.width, fxCanvas.height);
 
-  if (mode === "none" || reduceMotion.matches) return;
+  if (mode === "none" || reduceMotion.matches || store.get("motion", true) === false) return;
 
   fxParticles = makeParticles(mode);
   drawFx();
+}
+
+// Called by the settings page when "Animations" is switched on or off
+function refreshWeatherFx() {
+  const category = document.body.dataset.weather || "clear";
+  fxMode = "none"; // forces setWeatherFx to start (or stop) again
+  setWeatherFx(category);
 }

@@ -1,12 +1,13 @@
 // ----- Service worker: lets the app install and open offline -----
-const CACHE = "weather-v1";
+// Change the number when you publish big changes, so phones throw away the old copies.
+const CACHE = "weather-v3";
 
 const APP_FILES = [
   "./", "./index.html", "./style.css", "./manifest.json",
   "./icon-192.png", "./icon-512.png",
-  "./theme.js", "./nav.js", "./units.js", "./icons.js", "./alerts.js",
-  "./details.js", "./air.js", "./charts.js", "./rain.js", "./fx.js",
-  "./home.js", "./script.js", "./radar.js",
+  "./core.js", "./i18n.js", "./theme.js", "./nav.js", "./units.js", "./icons.js", "./alerts.js",
+  "./details.js", "./day.js", "./air.js", "./charts.js", "./rain.js", "./fx.js",
+  "./home.js", "./favorites.js", "./settings.js", "./gestures.js", "./script.js", "./radar.js",
 ];
 
 // Install: save the app's own files (one missing file won't break the install)
@@ -29,15 +30,12 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
-// Fetch: try the network first, use the saved copy when offline
+// Fetch: only the app's own files. Network first, the saved copy when offline.
+// Weather data is saved by the app itself (see script.js), maps and radar go straight to the network.
 self.addEventListener("fetch", (event) => {
   const request = event.request;
   if (request.method !== "GET") return;
-
-  const url = new URL(request.url);
-  const ownFile = url.origin === location.origin;
-  const weatherData = url.hostname.endsWith("open-meteo.com");
-  if (!ownFile && !weatherData) return; // maps, radar etc. go straight to the network
+  if (new URL(request.url).origin !== location.origin) return;
 
   event.respondWith(
     fetch(request)
@@ -49,10 +47,10 @@ self.addEventListener("fetch", (event) => {
         return response;
       })
       .catch(async () => {
-        const saved = await caches.match(request, { ignoreSearch: ownFile });
+        const saved = await caches.match(request, { ignoreSearch: true });
         if (saved) return saved;
         if (request.mode === "navigate") return caches.match("./index.html");
-        return Response.error();
+        return new Response("", { status: 504, statusText: "Offline and not saved" });
       })
   );
 });

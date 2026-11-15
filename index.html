@@ -4,184 +4,238 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Weather</title>
-    <link rel="manifest" href="manifest.json">
+  <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#4facfe">
   <link rel="icon" href="icon-192.png">
   <script>
-  try {
-    var t = localStorage.getItem("theme") ||
-      (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-    document.documentElement.setAttribute("data-theme", t);
-  } catch (e) {}
-</script>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    // Set the theme before the page is drawn, so it never flashes the wrong colors
+    try {
+      var t = localStorage.getItem("theme");
+      if (t !== "light" && t !== "dark") t = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      document.documentElement.setAttribute("data-theme", t);
+    } catch (e) {}
+  </script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <canvas id="fx" class="fx"></canvas>
-  <button id="unit-btn" class="theme-btn unit-btn" aria-label="Switch between Celsius and Fahrenheit">°C</button>
-  <button id="theme-btn" class="theme-btn" aria-label="Toggle dark mode">🌙</button>
+
+  <!-- Round buttons in the top-right corner -->
+  <div class="top-actions">
+    <button id="settings-btn" class="theme-btn" data-i18n-aria="settings" aria-label="Settings">
+      <svg class="ti" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+    </button>
+    <button id="unit-btn" class="theme-btn unit-btn" data-i18n-aria="unitsAria" aria-label="Switch between Celsius and Fahrenheit">°C</button>
+    <button id="theme-btn" class="theme-btn" data-i18n-aria="toggleDark" aria-label="Toggle dark mode">🌙</button>
+  </div>
+
+  <!-- Pull-to-refresh indicator -->
+  <div class="ptr" id="ptr" aria-hidden="true">
+    <span class="ptr-icon">↓</span>
+    <span class="ptr-text" id="ptr-text"></span>
+  </div>
+
   <main class="card">
 
     <!-- PAGE: Home -->
     <section class="page active" id="page-home">
-      <form id="search-form" class="search">
-        <div class="search-box">
-          <input id="search-input" type="text" placeholder="Search for a city..." autocomplete="off" required>
-          <ul id="suggestions" class="suggestions"></ul>
-        </div>
-        <button type="button" id="loc-btn" class="loc-btn" aria-label="Use my location">📍</button>
-        <button type="submit">Search</button>
-      </form>
-      <p class="geo-note" id="geo-note"></p>
+      <div class="home-main">
+        <form id="search-form" class="search">
+          <div class="search-box">
+            <input id="search-input" type="text" data-i18n-placeholder="searchPlaceholder" placeholder="Search for a city..." autocomplete="off" required>
+            <ul id="suggestions" class="suggestions"></ul>
+          </div>
+          <button type="button" id="loc-btn" class="loc-btn" data-i18n-aria="useLocation" aria-label="Use my location">📍</button>
+          <button type="submit" data-i18n="search">Search</button>
+        </form>
+        <p class="geo-note" id="geo-note"></p>
 
-      <p class="date" id="date">Friday, 13 November</p>
-      <div class="city-row">
-        <h1 id="city">Galați</h1>
-        <button id="fav-btn" class="fav-btn" aria-label="Save city">☆</button>
+        <div class="banner" id="banner" hidden>
+          <span id="banner-text"></span>
+          <button type="button" id="banner-retry" data-i18n="retry">Try again</button>
+        </div>
+
+        <p class="date" id="date">&nbsp;</p>
+        <div class="city-row">
+          <h1 id="city"><span class="skel skel-city"></span></h1>
+          <button id="fav-btn" class="fav-btn" data-i18n-aria="saveCity" aria-label="Save city">☆</button>
+        </div>
+
+        <div class="icon" id="icon"><span class="skel skel-icon"></span></div>
+        <p id="temp"><span class="skel skel-temp"></span></p>
+        <p id="condition"><span class="skel skel-line"></span></p>
+        <p class="rain" id="rain"><span class="skel skel-small"></span></p>
+        <button type="button" id="updated" class="updated">&nbsp;</button>
+
+        <div class="nowcast" id="nowcast"></div>
+        <div class="alerts" id="alerts"></div>
+
+        <div class="details">
+          <div class="detail">
+            <span class="label" data-i18n="feelsLike">Feels like</span>
+            <span class="value" id="feels"><span class="skel skel-small"></span></span>
+          </div>
+          <div class="detail">
+            <span class="label" data-i18n="humidity">Humidity</span>
+            <span class="value" id="humidity"><span class="skel skel-small"></span></span>
+          </div>
+          <div class="detail">
+            <span class="label" data-i18n="wind">Wind</span>
+            <span class="value" id="wind"><span class="skel skel-small"></span></span>
+          </div>
+        </div>
       </div>
 
-      <div class="icon" id="icon">⛅</div>
-      <p id="temp">12°</p>
-      <p id="condition">Partly cloudy</p>
-      <p class="rain" id="rain">💧 0% chance of rain</p>
-      <button type="button" id="updated" class="updated">Loading…</button>
+      <div class="home-side">
+        <!-- Only shown on wide screens -->
+        <div class="wide-only">
+          <h2 class="section-title" data-i18n="next24">Next 24 hours</h2>
+          <div class="temp-chart" id="chart-home"></div>
+        </div>
 
-      <div class="nowcast" id="nowcast"></div>
-      <div class="alerts" id="alerts"></div>
+        <details class="fold" id="fold-favorites" open>
+          <summary class="section-title" data-i18n="favorites">Favorite cities</summary>
+          <div class="favorites" id="favorites"></div>
+        </details>
 
-      <div class="details">
-        <div class="detail">
-          <span class="label">Feels like</span>
-          <span class="value" id="feels">10°</span>
-        </div>
-        <div class="detail">
-          <span class="label">Humidity</span>
-          <span class="value" id="humidity">68%</span>
-        </div>
-        <div class="detail">
-          <span class="label">Wind</span>
-          <span class="value" id="wind">14 km/h</span>
-        </div>
+        <details class="fold" id="fold-details" open>
+          <summary class="section-title" data-i18n="moreDetails">More details</summary>
+          <div class="more-grid" id="more-details"></div>
+        </details>
+
+        <details class="fold" id="fold-air">
+          <summary class="section-title"><span data-i18n="airQuality">Air quality</span> <span class="fold-hint" id="air-hint"></span></summary>
+          <div class="air" id="air"></div>
+        </details>
       </div>
-
-      <details class="fold" id="fold-favorites" open>
-        <summary class="section-title">Favorite cities</summary>
-        <div class="favorites" id="favorites"></div>
-      </details>
-
-      <details class="fold" id="fold-details" open>
-        <summary class="section-title">More details</summary>
-        <div class="more-grid" id="more-details"></div>
-      </details>
-
-      <details class="fold" id="fold-air">
-        <summary class="section-title">Air quality <span class="fold-hint" id="air-hint"></span></summary>
-        <div class="air" id="air"></div>
-      </details>
     </section>
 
     <!-- PAGE: Today -->
-     <section class="page" id="page-today">
-  <h1 class="page-title">Today</h1>
-  <div class="temp-chart" id="chart-today"></div>
-  <div class="hour-list" id="today-list"></div>
-</section>
     <section class="page" id="page-today">
-  <h1 class="page-title">Today</h1>
-  <div class="hour-list" id="today-list"></div>
-</section>
+      <h1 class="page-title" data-i18n="todayTitle">Today</h1>
+      <div class="temp-chart" id="chart-today"></div>
+      <div class="hour-list" id="today-list"></div>
+    </section>
 
     <!-- PAGE: 48 hours -->
-     <section class="page" id="page-48h">
-  <h1 class="page-title">Next 48 hours</h1>
-  <div class="temp-chart" id="chart-48h"></div>
-  <div class="hour-list" id="list-48h"></div>
-</section>
-   <section class="page" id="page-48h">
-  <h1 class="page-title">Next 48 hours</h1>
-  <div class="hour-list" id="list-48h"></div>
-</section>
+    <section class="page" id="page-48h">
+      <h1 class="page-title" data-i18n="next48">Next 48 hours</h1>
+      <div class="temp-chart" id="chart-48h"></div>
+      <div class="hour-list" id="list-48h"></div>
+    </section>
 
     <!-- PAGE: 14 days -->
     <section class="page" id="page-14d">
-      <h1 class="page-title">14-day forecast</h1>
+      <h1 class="page-title" data-i18n="forecast14">14-day forecast</h1>
       <div class="daily" id="daily"></div>
     </section>
 
     <!-- PAGE: Radar -->
     <section class="page" id="page-radar">
-  <h1 class="page-title">Radar</h1>
+      <h1 class="page-title" data-i18n="radar">Radar</h1>
+      <div id="radar-map" class="radar-map"></div>
+      <div class="radar-controls">
+        <button id="radar-play" class="radar-play" data-i18n-aria="playPause" aria-label="Play or pause">⏸</button>
+        <input id="radar-slider" type="range" min="0" max="0" value="0">
+        <span id="radar-time" class="radar-time"></span>
+      </div>
+      <p class="radar-note"><span data-i18n="radarNote">Past 2 hours of rain radar · Radar by</span> <a href="https://www.rainviewer.com/" target="_blank" rel="noopener">RainViewer</a></p>
+      <h2 class="section-title" data-i18n="rainNext12">Chance of rain, next 12 hours</h2>
+      <div class="rain-bars" id="rain-bars"></div>
+    </section>
 
-  <div id="radar-map" class="radar-map"></div>
-
-  <div class="radar-controls">
-    <button id="radar-play" class="radar-play" aria-label="Play or pause">⏸</button>
-    <input id="radar-slider" type="range" min="0" max="0" value="0">
-    <span id="radar-time" class="radar-time">Loading...</span>
-  </div>
-  <p class="radar-note">Past 2 hours of rain radar · Radar by <a href="https://www.rainviewer.com/" target="_blank" rel="noopener">RainViewer</a></p>
-
-  <h2 class="section-title">Chance of rain, next 12 hours</h2>
-  <div class="rain-bars" id="rain-bars"></div>
-</section>
     <!-- PAGE: Hour detail (opened by tapping an hour) -->
-    <section class="page" id="page-hour">
-      <button class="back-btn" id="hour-back">‹ Back</button>
-      <p class="date" id="hour-title">Today · 19:00</p>
-      <div class="icon" id="hour-icon">⛅</div>
-      <p class="big-temp" id="hour-temp">12°</p>
-      <p id="hour-condition">Partly cloudy</p>
-
-      <div class="more-grid" id="hour-grid"></div>
-
+    <section class="page sub-page" id="page-hour">
+      <button class="back-btn" data-back data-i18n="back">‹ Back</button>
+      <div class="swipe-area">
+        <p class="date" id="hour-title"></p>
+        <div class="icon" id="hour-icon"></div>
+        <p class="big-temp" id="hour-temp"></p>
+        <p id="hour-condition"></p>
+        <div class="more-grid" id="hour-grid"></div>
+      </div>
       <div class="hour-nav">
-        <button class="hour-nav-btn" id="hour-prev">‹ Earlier</button>
-        <button class="hour-nav-btn" id="hour-next">Later ›</button>
+        <button class="hour-nav-btn" id="hour-prev" data-i18n="earlier">‹ Earlier</button>
+        <button class="hour-nav-btn" id="hour-next" data-i18n="later">Later ›</button>
       </div>
     </section>
-</main>
+
+    <!-- PAGE: Day detail (opened by tapping a day) -->
+    <section class="page sub-page" id="page-day">
+      <button class="back-btn" data-back data-i18n="back">‹ Back</button>
+      <div class="swipe-area">
+        <p class="date" id="day-title"></p>
+        <div class="icon" id="day-icon"></div>
+        <p class="day-range" id="day-range"></p>
+        <p id="day-condition"></p>
+        <div class="temp-chart" id="chart-day"></div>
+        <div class="more-grid" id="day-grid"></div>
+        <h2 class="section-title" data-i18n="hourByHour">Hour by hour</h2>
+        <div class="hour-list" id="day-hours"></div>
+      </div>
+      <div class="hour-nav">
+        <button class="hour-nav-btn" id="day-prev" data-i18n="prevDay">‹ Previous day</button>
+        <button class="hour-nav-btn" id="day-next" data-i18n="nextDay">Next day ›</button>
+      </div>
+    </section>
+
+    <!-- PAGE: Settings -->
+    <section class="page sub-page" id="page-settings">
+      <button class="back-btn" data-back data-i18n="back">‹ Back</button>
+      <h1 class="page-title" data-i18n="settings">Settings</h1>
+      <div class="settings" id="settings-list"></div>
+    </section>
+  </main>
+
   <!-- Bottom menu bar -->
-    <nav class="tabbar">
+  <nav class="tabbar">
     <button class="tab active" data-page="page-home">
       <svg class="ti" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>
-      Home
+      <span class="tab-label" data-i18n="home">Home</span>
     </button>
     <button class="tab" data-page="page-today">
       <svg class="ti" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
-      Today
+      <span class="tab-label" data-i18n="tabToday">Today</span>
     </button>
     <button class="tab" data-page="page-48h">
       <svg class="ti" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M12 7v5l3 2"/></svg>
-      48 hours
+      <span class="tab-label" data-i18n="tab48">48 hours</span>
     </button>
     <button class="tab" data-page="page-14d">
       <svg class="ti" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg>
-      14 days
+      <span class="tab-label" data-i18n="tab14">14 days</span>
     </button>
     <button class="tab" data-page="page-radar">
       <svg class="ti" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><path d="M12 12l6.4-6.4"/></svg>
-      Radar
+      <span class="tab-label" data-i18n="radar">Radar</span>
     </button>
   </nav>
-<script src="theme.js"></script>
-<script src="nav.js"></script>
-<script src="units.js"></script>
-<script src="icons.js"></script>
-<script src="alerts.js"></script>
-<script src="details.js"></script>
-<script src="air.js"></script>
-<script src="charts.js"></script>
-<script src="rain.js"></script>
-<script src="fx.js"></script>
-<script src="home.js"></script>
-<script src="script.js"></script>
-<script src="radar.js"></script>
-<script>
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("./sw.js").catch((error) => console.error(error));
-  }
-</script>
+
+  <script src="core.js"></script>
+  <script src="i18n.js"></script>
+  <script src="theme.js"></script>
+  <script src="nav.js"></script>
+  <script src="units.js"></script>
+  <script src="icons.js"></script>
+  <script src="alerts.js"></script>
+  <script src="details.js"></script>
+  <script src="day.js"></script>
+  <script src="air.js"></script>
+  <script src="charts.js"></script>
+  <script src="rain.js"></script>
+  <script src="fx.js"></script>
+  <script src="home.js"></script>
+  <script src="favorites.js"></script>
+  <script src="settings.js"></script>
+  <script src="gestures.js"></script>
+  <script src="script.js"></script>
+  <script src="radar.js"></script>
+  <script>
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("./sw.js").catch((error) => console.error(error));
+    }
+  </script>
 </body>
 </html>

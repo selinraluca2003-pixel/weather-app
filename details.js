@@ -1,42 +1,43 @@
 // ----- More weather details -----
-const compassNames = [
-  "N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
-  "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW",
-];
 
-// Degrees (0-360) -> "NW"
+// Degrees (0-360) -> "NW" (or "NV" in Romanian)
 function compass(degrees) {
-  return compassNames[Math.round(degrees / 22.5) % 16];
+  return t("compass")[Math.round(degrees / 22.5) % 16];
 }
 
 function uvLabel(uv) {
-  if (uv < 3) return "Low";
-  if (uv < 6) return "Moderate";
-  if (uv < 8) return "High";
-  if (uv < 11) return "Very high";
-  return "Extreme";
+  if (uv < 3) return t("uvLow");
+  if (uv < 6) return t("uvModerate");
+  if (uv < 8) return t("uvHigh");
+  if (uv < 11) return t("uvVeryHigh");
+  return t("uvExtreme");
 }
 
 function dewLabel(dewCelsius) {
-  if (dewCelsius < 10) return "Dry";
-  if (dewCelsius < 16) return "Comfortable";
-  if (dewCelsius < 18) return "Slightly humid";
-  if (dewCelsius < 21) return "Humid";
-  return "Oppressive";
+  if (dewCelsius < 10) return t("dewDry");
+  if (dewCelsius < 16) return t("dewComfortable");
+  if (dewCelsius < 18) return t("dewSlightly");
+  if (dewCelsius < 21) return t("dewHumid");
+  return t("dewOppressive");
 }
 
-function visibilityLabel(km) {
-  if (km >= 10) return "Clear";
-  if (km >= 4) return "Moderate";
-  if (km >= 1) return "Poor";
-  return "Very poor (fog)";
+function visibilityLabel(meters) {
+  const km = meters / 1000;
+  if (km >= 10) return t("visClear");
+  if (km >= 4) return t("visModerate");
+  if (km >= 1) return t("visPoor");
+  return t("visVeryPoor");
+}
+
+function cloudLabel(clouds) {
+  return clouds < 20 ? t("cloudsClear") : clouds < 70 ? t("cloudsPartly") : t("cloudsOvercast");
 }
 
 // 35400 seconds -> "9h 50m"
 function formatDuration(seconds) {
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.round((seconds % 3600) / 60);
-  return `${hours}h ${minutes}m`;
+  return t("duration", { h: hours, m: minutes });
 }
 
 // Moon phase worked out from the date (no internet needed)
@@ -46,15 +47,16 @@ function moonPhase() {
   const days = (Date.now() - knownNewMoon) / 86400000;
   const phase = (((days % synodicMonth) + synodicMonth) % synodicMonth) / synodicMonth; // 0 to 1
 
-  const names = [
-    "New moon", "Waxing crescent", "First quarter", "Waxing gibbous",
-    "Full moon", "Waning gibbous", "Last quarter", "Waning crescent",
-  ];
   const icons = ["🌑", "🌒", "🌓", "🌔", "🌕", "🌖", "🌗", "🌘"];
   const index = Math.round(phase * 8) % 8;
   const lit = Math.round(((1 - Math.cos(2 * Math.PI * phase)) / 2) * 100);
 
-  return { icon: icons[index], name: names[index], lit };
+  return { icon: icons[index], name: t("moonNames")[index], lit };
+}
+
+// The arrow points where the wind is going, so it turns 180° from the "from" direction
+function windArrow(degrees) {
+  return `<span class="wind-arrow" style="transform: rotate(${degrees + 180}deg)">↑</span>`;
 }
 
 // One small card
@@ -67,109 +69,81 @@ function detailCard(label, value, sub, small = false) {
     </div>`;
 }
 
-// Called by getWeather every time a city loads
+// "More details" on the Home page
 function showDetails(data, nowIndex) {
-  const hourly = data.hourly;
+  const h = data.hourly;
   const daily = data.daily;
-
-  const uv = hourly.uv_index[nowIndex];
-  const pressure = hourly.pressure_msl[nowIndex];
-  const km = hourly.visibility[nowIndex] / 1000;
-  const dew = hourly.dew_point_2m[nowIndex];
-  const clouds = hourly.cloud_cover[nowIndex];
-  const windDirection = hourly.wind_direction_10m[nowIndex];
-  const gust = hourly.wind_gusts_10m[nowIndex];
-
-  const visibilityText = units.isImperial()
-    ? `${Math.round(km / 1.609)} mi`
-    : `${Math.round(km)} km`;
-
-  const sunrise = daily.sunrise[0].slice(11, 16);
-  const sunset = daily.sunset[0].slice(11, 16);
+  const i = nowIndex;
+  const uv = h.uv_index[i];
+  const dew = h.dew_point_2m[i];
   const moon = moonPhase();
 
-  // The arrow points where the wind is going, so it turns 180° from the "from" direction
-  const arrow = `<span class="wind-arrow" style="transform: rotate(${windDirection + 180}deg)">↑</span>`;
-
   document.getElementById("more-details").innerHTML =
-    detailCard("UV index", uv.toFixed(1), `${uvLabel(uv)} · peak ${Math.round(daily.uv_index_max[0])} today`) +
-    detailCard("Pressure", `${Math.round(pressure)} hPa`, "Sea level") +
-    detailCard("Visibility", visibilityText, visibilityLabel(km)) +
-    detailCard("Dew point", `${Math.round(dew)}°`, dewLabel(units.toCelsius(dew))) +
-    detailCard("Cloud cover", `${Math.round(clouds)}%`, clouds < 20 ? "Mostly clear" : clouds < 70 ? "Partly cloudy" : "Overcast") +
-    detailCard("Wind from", `${arrow} ${compass(windDirection)}`, `Gusts ${Math.round(gust)} ${units.windUnit()}`) +
-    detailCard("Sunrise · Sunset", `${sunrise} – ${sunset}`, `${formatDuration(daily.daylight_duration[0])} of daylight`, true) +
-    detailCard("Moon", `${moon.icon} ${moon.lit}%`, moon.name);
-
-  // If you switch °C/°F while looking at an hour page, refresh it
-  if (document.getElementById("page-hour").classList.contains("active")) renderHourPage();
+    detailCard(t("uvIndex"), uv.toFixed(1), t("uvPeak", { label: uvLabel(uv), n: Math.round(daily.uv_index_max[0]) })) +
+    detailCard(t("pressure"), `${Math.round(h.pressure_msl[i])} hPa`, t("seaLevel")) +
+    detailCard(t("visibility"), units.visibility(h.visibility[i]), visibilityLabel(h.visibility[i])) +
+    detailCard(t("dewPoint"), `${Math.round(dew)}°`, dewLabel(units.toCelsius(dew))) +
+    detailCard(t("cloudCover"), `${Math.round(h.cloud_cover[i])}%`, cloudLabel(h.cloud_cover[i])) +
+    detailCard(t("windFrom"), `${windArrow(h.wind_direction_10m[i])} ${compass(h.wind_direction_10m[i])}`, t("gusts", { n: Math.round(h.wind_gusts_10m[i]), u: units.windUnit() })) +
+    detailCard(t("sunriseSunset"), `${fmtTime(daily.sunrise[0])} – ${fmtTime(daily.sunset[0])}`, t("daylight", { d: formatDuration(daily.daylight_duration[0]) }), true) +
+    detailCard(t("moon"), `${moon.icon} ${moon.lit}%`, moon.name);
 }
 
 // ----- Hour detail page -----
-let latestWeather = null; // newest forecast, set by getWeather
-const hourPage = { index: 0, origin: "page-today", scrollY: 0 };
+let latestWeather = null; // newest forecast, set by renderWeather
+const hourPage = { index: 0 };
 
 function renderHourPage() {
   const data = latestWeather;
+  if (!data) return;
   const h = data.hourly;
   const i = hourPage.index;
+  const iso = h.time[i];
 
-  // Where is "now" in the hourly list?
-  const nowIndex = h.time.findIndex((t) => t.startsWith(data.current.time.slice(0, 13)));
-
-  const clock = h.time[i].slice(11, 16);
-  const day = new Date(h.time[i]).toLocaleDateString("en-GB", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-  });
+  const day = capitalize(new Date(iso.slice(0, 10) + "T12:00").toLocaleDateString(locale(), { weekday: "short", day: "numeric", month: "short" }));
   document.getElementById("hour-title").textContent =
-    i === nowIndex ? `Now · ${clock}` : `${day} · ${clock}`;
+    i === weatherNow.index ? `${t("now")} · ${fmtTime(iso)}` : `${day} · ${fmtTime(iso)}`;
 
   const code = h.weather_code[i];
-    document.getElementById("hour-icon").innerHTML = weatherIcon(code, h.is_day[i]);
+  document.getElementById("hour-icon").innerHTML = weatherIcon(code, h.is_day[i]);
   document.getElementById("hour-temp").textContent = Math.round(h.temperature_2m[i]) + "°";
-  document.getElementById("hour-condition").textContent = (weatherCodes[code] || { text: "Unknown" }).text;
+  document.getElementById("hour-condition").textContent = weatherText(code);
 
-  const km = h.visibility[i] / 1000;
-  const visibility = units.isImperial() ? `${Math.round(km / 1.609)} mi` : `${Math.round(km)} km`;
   const uv = h.uv_index[i];
-  const clouds = h.cloud_cover[i];
   const direction = h.wind_direction_10m[i];
-  const arrow = `<span class="wind-arrow" style="transform: rotate(${direction + 180}deg)">↑</span>`;
+  const dew = h.dew_point_2m[i];
 
   document.getElementById("hour-grid").innerHTML =
-    detailCard("Feels like", `${Math.round(h.apparent_temperature[i])}°`, "") +
-    detailCard("Humidity", `${Math.round(h.relative_humidity_2m[i])}%`, "") +
-    detailCard("Rain chance", `${h.precipitation_probability[i]}%`, "") +
-    detailCard("Rain amount", `${h.precipitation[i].toFixed(1)} mm`, "") +
-    detailCard("Wind from", `${arrow} ${compass(direction)}`, `${Math.round(h.wind_speed_10m[i])} ${units.windUnit()} · gusts ${Math.round(h.wind_gusts_10m[i])}`) +
-    detailCard("UV index", uv.toFixed(1), uvLabel(uv)) +
-    detailCard("Cloud cover", `${Math.round(clouds)}%`, clouds < 20 ? "Mostly clear" : clouds < 70 ? "Partly cloudy" : "Overcast") +
-    detailCard("Pressure", `${Math.round(h.pressure_msl[i])} hPa`, "Sea level") +
-    detailCard("Visibility", visibility, visibilityLabel(km)) +
-    detailCard("Dew point", `${Math.round(h.dew_point_2m[i])}°`, dewLabel(units.toCelsius(h.dew_point_2m[i])));
+    detailCard(t("feelsLike"), `${Math.round(h.apparent_temperature[i])}°`, "") +
+    detailCard(t("humidity"), `${Math.round(h.relative_humidity_2m[i])}%`, "") +
+    detailCard(t("rainChance"), `${h.precipitation_probability[i]}%`, "") +
+    detailCard(t("rainAmount"), `${h.precipitation[i].toFixed(1)} mm`, "") +
+    detailCard(t("windFrom"), `${windArrow(direction)} ${compass(direction)}`, t("speedGusts", { s: Math.round(h.wind_speed_10m[i]), u: units.windUnit(), g: Math.round(h.wind_gusts_10m[i]) })) +
+    detailCard(t("uvIndex"), uv.toFixed(1), uvLabel(uv)) +
+    detailCard(t("cloudCover"), `${Math.round(h.cloud_cover[i])}%`, cloudLabel(h.cloud_cover[i])) +
+    detailCard(t("pressure"), `${Math.round(h.pressure_msl[i])} hPa`, t("seaLevel")) +
+    detailCard(t("visibility"), units.visibility(h.visibility[i]), visibilityLabel(h.visibility[i])) +
+    detailCard(t("dewPoint"), `${Math.round(dew)}°`, dewLabel(units.toCelsius(dew)));
 
   document.getElementById("hour-prev").disabled = i <= 0;
   document.getElementById("hour-next").disabled = i >= h.time.length - 1;
 }
 
 function openHourPage(index) {
-    if (!latestWeather || Number.isNaN(index)) return;
-
-  // Remember where we came from, so Back can return there
-  hourPage.origin = document.querySelector(".page.active").id;
-  hourPage.scrollY = window.scrollY;
+  if (!latestWeather || Number.isNaN(index)) return;
   hourPage.index = index;
-
   renderHourPage();
-  showPage("page-hour", hourPage.origin); // keep the original tab highlighted
+  openSubPage("page-hour");
 }
 
+// step = -1 (earlier) or +1 (later). Returns false at the ends of the forecast.
 function changeHour(step) {
   const last = latestWeather.hourly.time.length - 1;
-  hourPage.index = Math.min(last, Math.max(0, hourPage.index + step));
+  const next = Math.min(last, Math.max(0, hourPage.index + step));
+  if (next === hourPage.index) return false;
+  hourPage.index = next;
   renderHourPage();
+  return true;
 }
 
 // Tapping any hour row opens its page
@@ -178,8 +152,5 @@ document.addEventListener("click", (event) => {
   if (row) openHourPage(Number(row.dataset.i));
 });
 
-document.getElementById("hour-back").addEventListener("click", () => {
-  showPage(hourPage.origin, hourPage.origin, hourPage.scrollY);
-});
 document.getElementById("hour-prev").addEventListener("click", () => changeHour(-1));
 document.getElementById("hour-next").addEventListener("click", () => changeHour(1));

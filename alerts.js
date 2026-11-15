@@ -3,17 +3,9 @@ let alertCounter = 0;
 
 const levelRank = { red: 3, orange: 2, yellow: 1 };
 
-// Make text safe before putting it into the page
-function escapeHTML(text) {
-  const div = document.createElement("div");
-  div.textContent = text;
-  return div.innerHTML;
-}
-
 // "Sat 14:00"
 function formatWhen(isoTime) {
-  const day = new Date(isoTime).toLocaleDateString("en-GB", { weekday: "short" });
-  return `${day} ${isoTime.slice(11, 16)}`;
+  return `${fmtWeekday(isoTime)} ${fmtTime(isoTime)}`;
 }
 
 // Pick yellow / orange / red from a value and three thresholds
@@ -27,8 +19,8 @@ function pickLevel(value, yellow, orange, red) {
 // ---- Layer 1: alerts we work out from the forecast ----
 function forecastAlerts(data, nowIndex) {
   const alerts = [];
-  const end = nowIndex + 48;
-  const source = "Forecast-based, not an official warning";
+  const end = Math.min(nowIndex + 48, data.hourly.time.length);
+  const source = t("forecastBased");
 
   // Wind: strongest gust in the next 48 hours
   let maxGust = 0;
@@ -45,8 +37,8 @@ function forecastAlerts(data, nowIndex) {
     alerts.push({
       level: windLevel,
       icon: "💨",
-      title: "Strong wind gusts",
-      text: `Gusts up to ${units.showWind(maxGust)} expected around ${formatWhen(gustTime)}.`,
+      title: t("strongGusts"),
+      text: t("gustsText", { v: units.showWind(maxGust), when: formatWhen(gustTime) }),
       source,
     });
   }
@@ -58,8 +50,8 @@ function forecastAlerts(data, nowIndex) {
       alerts.push({
         level: code >= 96 ? "orange" : "yellow",
         icon: "⛈️",
-        title: code >= 96 ? "Thunderstorm with hail" : "Thunderstorm",
-        text: `Possible from ${formatWhen(data.hourly.time[i])}.`,
+        title: weatherText(code),
+        text: t("stormText", { when: formatWhen(data.hourly.time[i]) }),
         source,
       });
       break;
@@ -68,42 +60,24 @@ function forecastAlerts(data, nowIndex) {
 
   // Today and tomorrow: rain, heat, cold
   for (let d = 0; d < 2; d++) {
-    const when = d === 0 ? "today" : "tomorrow";
+    const when = d === 0 ? t("todayLower") : t("tomorrowLower");
 
     const rain = data.daily.precipitation_sum[d];
     const rainLevel = pickLevel(rain, 30, 50, 80);
     if (rainLevel) {
-      alerts.push({
-        level: rainLevel,
-        icon: "🌧️",
-        title: "Heavy rain",
-        text: `About ${Math.round(rain)} mm of rain expected ${when}.`,
-        source,
-      });
+      alerts.push({ level: rainLevel, icon: "🌧️", title: t("heavyRain"), text: t("rainText", { mm: Math.round(rain), when }), source });
     }
 
     const max = data.daily.temperature_2m_max[d];
-   const heatLevel = pickLevel(units.toCelsius(max), 35, 38, 40);
+    const heatLevel = pickLevel(units.toCelsius(max), 35, 38, 40);
     if (heatLevel) {
-      alerts.push({
-        level: heatLevel,
-        icon: "🥵",
-        title: "Extreme heat",
-        text: `High of ${Math.round(max)}° expected ${when}.`,
-        source,
-      });
+      alerts.push({ level: heatLevel, icon: "🥵", title: t("extremeHeat"), text: t("heatText", { t: Math.round(max), when }), source });
     }
 
     const min = data.daily.temperature_2m_min[d];
     const coldLevel = pickLevel(-units.toCelsius(min), 10, 15, 20);
     if (coldLevel) {
-      alerts.push({
-        level: coldLevel,
-        icon: "🥶",
-        title: "Severe cold",
-        text: `Low of ${Math.round(min)}° expected ${when}.`,
-        source,
-      });
+      alerts.push({ level: coldLevel, icon: "🥶", title: t("severeCold"), text: t("coldText", { t: Math.round(min), when }), source });
     }
   }
 
@@ -124,15 +98,8 @@ function levelFromOfficial(p) {
 }
 
 async function fetchOfficialAlerts(latitude, longitude) {
-  const url = `https://api.librewxr.net/v2/alerts?lat=${latitude}&lon=${longitude}`;
-  const response = await fetch(url);
-  if (!response.ok) throw new Error("HTTP " + response.status);
-
-  const data = await response.json();
+  const data = await fetchJSON(`https://api.librewxr.net/v2/alerts?lat=${latitude}&lon=${longitude}`, { retries: 0 });
   const features = data.features || [];
-
-  // Debug help: shows what the service really sends back
-  if (features.length > 0) console.log("Official alert example:", features[0].properties);
 
   return features
     .map((feature) => feature.properties || {})
@@ -140,22 +107,21 @@ async function fetchOfficialAlerts(latitude, longitude) {
     .map((p) => ({
       level: levelFromOfficial(p),
       icon: "⚠️",
-      title: p.event || p.headline || p.title || "Weather warning",
+      title: p.event || p.headline || p.title || t("weatherWarning"),
       text: String(p.headline || p.description || "").slice(0, 160),
-      source: "Official warning" + (p.sender || p.senderName ? ` · ${p.sender || p.senderName}` : ""),
+      source: t("officialWarning") + (p.sender || p.senderName ? ` · ${p.sender || p.senderName}` : ""),
     }));
 }
 
 // ---- Showing the alerts ----
-// officialStatus: null = still checking, true = checked, false = unavailable
+// officialStatus: null = not checked, true = checked, false = unavailable
 function renderAlerts(list, officialStatus) {
   const box = document.getElementById("alerts");
-
   list.sort((a, b) => levelRank[b.level] - levelRank[a.level]);
 
   let html = "";
   if (list.length === 0) {
-    html += `<div class="alert none"><span class="alert-icon">✅</span><strong>No weather alerts</strong></div>`;
+    html += `<div class="alert none"><span class="alert-icon">✅</span><strong>${t("noAlerts")}</strong></div>`;
   } else {
     html += list
       .map(
@@ -172,21 +138,20 @@ function renderAlerts(list, officialStatus) {
       .join("");
   }
 
-  if (officialStatus === true) {
-    html += `<p class="alerts-note">Official warnings: WMO via LibreWXR · <a href="https://www.meteoalarm.org" target="_blank" rel="noopener">meteoalarm.org</a></p>`;
-  } else if (officialStatus === false) {
-    html += `<p class="alerts-note">Official warnings unavailable right now. Check <a href="https://www.meteoalarm.org" target="_blank" rel="noopener">meteoalarm.org</a></p>`;
-  }
+  const link = `<a href="https://www.meteoalarm.org" target="_blank" rel="noopener">meteoalarm.org</a>`;
+  if (officialStatus === true) html += `<p class="alerts-note">${t("officialSource")} ${link}</p>`;
+  else if (officialStatus === false) html += `<p class="alerts-note">${t("officialUnavailable")} ${link}</p>`;
 
   box.innerHTML = html;
 }
 
-// Called by getWeather every time a city loads
-async function showAlerts(data, nowIndex, latitude, longitude) {
+// Called every time a city is shown. checkOfficial = false when showing saved (offline) data.
+async function showAlerts(data, nowIndex, latitude, longitude, checkOfficial = true) {
   const myId = ++alertCounter;
   const local = forecastAlerts(data, nowIndex);
 
   renderAlerts([...local], null); // show our own alerts straight away
+  if (!checkOfficial) return;
 
   try {
     const official = await fetchOfficialAlerts(latitude, longitude);
@@ -194,7 +159,7 @@ async function showAlerts(data, nowIndex, latitude, longitude) {
     renderAlerts([...official, ...local], true);
   } catch (error) {
     if (myId !== alertCounter) return;
-    console.error("Official alerts failed:", error);
+    console.warn("Official alerts unavailable:", error.message);
     renderAlerts([...local], false);
   }
 }

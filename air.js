@@ -1,14 +1,15 @@
 // ----- Air quality & pollen -----
 let airCounter = 0;
+let lastAir = null; // kept so a language change can redraw without asking the internet again
 
 // European Air Quality Index bands
 const aqiBands = [
-  { max: 20,       label: "Good",           color: "#3ddc97", advice: "A great time to be outside." },
-  { max: 40,       label: "Fair",           color: "#9be564", advice: "Fine for most people." },
-  { max: 60,       label: "Moderate",       color: "#ffd54a", advice: "Sensitive people may want to limit long outdoor effort." },
-  { max: 80,       label: "Poor",           color: "#ff9800", advice: "Consider shorter outdoor activity, especially if you're sensitive." },
-  { max: 100,      label: "Very poor",      color: "#ff5252", advice: "Limit time outdoors, especially children and people with breathing problems." },
-  { max: Infinity, label: "Extremely poor", color: "#b04ad6", advice: "Avoid strenuous outdoor activity." },
+  { max: 20,       label: "aqiGood",     color: "#3ddc97", advice: "adviceGood" },
+  { max: 40,       label: "aqiFair",     color: "#9be564", advice: "adviceFair" },
+  { max: 60,       label: "aqiModerate", color: "#ffd54a", advice: "adviceModerate" },
+  { max: 80,       label: "aqiPoor",     color: "#ff9800", advice: "advicePoor" },
+  { max: 100,      label: "aqiVeryPoor", color: "#ff5252", advice: "adviceVeryPoor" },
+  { max: Infinity, label: "aqiExtreme",  color: "#b04ad6", advice: "adviceExtreme" },
 ];
 
 function aqiBand(aqi) {
@@ -16,20 +17,20 @@ function aqiBand(aqi) {
 }
 
 const pollenTypes = [
-  { key: "alder_pollen",   name: "Alder",   icon: "🌳" },
-  { key: "birch_pollen",   name: "Birch",   icon: "🌳" },
-  { key: "grass_pollen",   name: "Grass",   icon: "🌾" },
-  { key: "mugwort_pollen", name: "Mugwort", icon: "🌿" },
-  { key: "olive_pollen",   name: "Olive",   icon: "🫒" },
-  { key: "ragweed_pollen", name: "Ragweed", icon: "🌼" },
+  { key: "alder_pollen",   name: "alder",   icon: "🌳" },
+  { key: "birch_pollen",   name: "birch",   icon: "🌳" },
+  { key: "grass_pollen",   name: "grass",   icon: "🌾" },
+  { key: "mugwort_pollen", name: "mugwort", icon: "🌿" },
+  { key: "olive_pollen",   name: "olive",   icon: "🫒" },
+  { key: "ragweed_pollen", name: "ragweed", icon: "🌼" },
 ];
 
 // Simple general bands (grains per m³), not medical thresholds
 function pollenLevel(value) {
-  if (value < 10)  return { text: "Low", cls: "" };
-  if (value < 50)  return { text: "Moderate", cls: "" };
-  if (value < 200) return { text: "High", cls: "high" };
-  return { text: "Very high", cls: "very-high" };
+  if (value < 10)  return { text: t("pollenLow"), cls: "" };
+  if (value < 50)  return { text: t("pollenModerate"), cls: "" };
+  if (value < 200) return { text: t("pollenHigh"), cls: "high" };
+  return { text: t("pollenVeryHigh"), cls: "very-high" };
 }
 
 // A number, or "–" when the data is missing
@@ -38,19 +39,19 @@ function num(value) {
 }
 
 function renderAir(c) {
+  lastAir = c;
   const aqi = Math.round(c.european_aqi);
   const band = aqiBand(aqi);
-    const hint = document.getElementById("air-hint");
-  if (hint) hint.textContent = `${aqi} · ${band.label}`;
+  document.getElementById("air-hint").textContent = `${aqi} · ${t(band.label)}`;
   const markerPosition = (Math.min(aqi, 120) / 120) * 100;
 
   const pollutants =
-    detailCard("PM2.5", num(c.pm2_5), "µg/m³ · fine particles") +
-    detailCard("PM10", num(c.pm10), "µg/m³ · coarse particles") +
-    detailCard("Ozone (O₃)", num(c.ozone), "µg/m³") +
-    detailCard("Nitrogen dioxide", num(c.nitrogen_dioxide), "µg/m³ · traffic, industry") +
-    detailCard("Sulphur dioxide", num(c.sulphur_dioxide), "µg/m³") +
-    detailCard("Dust", num(c.dust), "µg/m³ · e.g. Saharan dust");
+    detailCard("PM2.5", num(c.pm2_5), t("fineParticles")) +
+    detailCard("PM10", num(c.pm10), t("coarseParticles")) +
+    detailCard(t("ozone"), num(c.ozone), "µg/m³") +
+    detailCard(t("no2"), num(c.nitrogen_dioxide), t("no2Sub")) +
+    detailCard(t("so2"), num(c.sulphur_dioxide), "µg/m³") +
+    detailCard(t("dust"), num(c.dust), t("dustSub"));
 
   // Pollen: list only the types that are actually present
   const present = pollenTypes
@@ -60,9 +61,9 @@ function renderAir(c) {
 
   let pollenHTML;
   if (noData) {
-    pollenHTML = `<p class="alerts-note">Pollen data isn't available for this location.</p>`;
+    pollenHTML = `<p class="alerts-note">${t("pollenNA")}</p>`;
   } else if (present.length === 0) {
-    pollenHTML = `<div class="pollen-row"><span>🍃 No pollen detected right now</span></div>`;
+    pollenHTML = `<div class="pollen-row"><span>🍃 ${t("noPollen")}</span></div>`;
   } else {
     pollenHTML = present
       .map((type) => {
@@ -70,7 +71,7 @@ function renderAir(c) {
         const level = pollenLevel(value);
         return `
           <div class="pollen-row">
-            <span>${type.icon} ${type.name}</span>
+            <span>${type.icon} ${t("pollenNames")[type.name]}</span>
             <span class="pollen-level ${level.cls}">${level.text} · ${Math.round(value)}</span>
           </div>`;
       })
@@ -81,27 +82,27 @@ function renderAir(c) {
     <div class="air-top">
       <span class="air-number" style="color:${band.color}">${aqi}</span>
       <div>
-        <strong>${band.label}</strong>
-        <p>${band.advice}</p>
+        <strong>${t(band.label)}</strong>
+        <p>${t(band.advice)}</p>
       </div>
     </div>
     <div class="aqi-bar"><span class="aqi-marker" style="left:${markerPosition}%"></span></div>
-    <div class="aqi-scale"><span>0</span><span>European AQI</span><span>100+</span></div>
+    <div class="aqi-scale"><span>0</span><span>${t("europeanAqi")}</span><span>100+</span></div>
 
-    <h3 class="air-sub">Pollutants</h3>
+    <h3 class="air-sub">${t("pollutants")}</h3>
     <div class="more-grid">${pollutants}</div>
 
-    <h3 class="air-sub">Pollen (grains/m³)</h3>
+    <h3 class="air-sub">${t("pollenTitle")}</h3>
     ${pollenHTML}
 
-    <p class="air-credit">Air quality data: <a href="https://atmosphere.copernicus.eu" target="_blank" rel="noopener">CAMS ENSEMBLE</a> via <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a></p>`;
+    <p class="air-credit">${t("airCredit")} <a href="https://atmosphere.copernicus.eu" target="_blank" rel="noopener">CAMS ENSEMBLE</a> ${t("via")} <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a></p>`;
 }
 
-// Called by getWeather every time a city loads
+// Called every time a city is loaded from the internet
 async function showAir(latitude, longitude) {
   const myId = ++airCounter;
   const box = document.getElementById("air");
-  box.innerHTML = `<p class="placeholder small">Loading air quality…</p>`;
+  if (!lastAir) box.innerHTML = `<p class="placeholder small">${t("airLoading")}</p>`;
 
   const url =
     `https://air-quality-api.open-meteo.com/v1/air-quality` +
@@ -111,18 +112,21 @@ async function showAir(latitude, longitude) {
     `&timezone=auto`;
 
   try {
-    const response = await fetch(url);
-    const data = await response.json();
+    const data = await fetchJSON(url);
     if (myId !== airCounter) return; // a newer city was loaded meanwhile
 
-    if (data.error || !data.current || data.current.european_aqi === null) {
-      box.innerHTML = `<p class="placeholder small">Air quality data isn't available for this location.</p>`;
+    if (!data.current || data.current.european_aqi === null) {
+      lastAir = null;
+      document.getElementById("air-hint").textContent = "";
+      box.innerHTML = `<p class="placeholder small">${t("airNA")}</p>`;
       return;
     }
     renderAir(data.current);
   } catch (error) {
     if (myId !== airCounter) return;
-    box.innerHTML = `<p class="placeholder small">Air quality is unavailable right now.</p>`;
-    console.error(error);
+    lastAir = null;
+    document.getElementById("air-hint").textContent = "";
+    box.innerHTML = `<p class="placeholder small">${t("airUnavailable")}</p>`;
+    console.warn("Air quality unavailable:", error.message);
   }
 }

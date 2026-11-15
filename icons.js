@@ -97,6 +97,6 @@ function weatherIcon(code, isDay = 1) {
     body = cloudShape(c.cloud);
   }
 
-  const label = (weatherCodes[code] || { text: "Weather" }).text;
+  const label = weatherText(code);
   return `<svg class="wi" viewBox="0 0 64 64" role="img" aria-label="${label}">${body}</svg>`;
 }

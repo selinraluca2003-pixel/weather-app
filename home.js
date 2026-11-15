@@ -1,4 +1,4 @@
-// ----- Home page helpers: last update, remembered city, location, folding sections -----
+// ----- Home page helpers: last update, start city, location, banner, folding sections -----
 const DEFAULT_PLACE = { name: "Galați, RO", latitude: 45.4353, longitude: 28.008 };
 const STALE_AFTER = 15 * 60 * 1000; // 15 minutes, in milliseconds
 
@@ -8,73 +8,110 @@ const geoNote = document.getElementById("geo-note");
 let lastUpdateTime = 0;
 
 // ---- Last updated ----
-function markUpdated() {
-  lastUpdateTime = Date.now();
-  const clock = new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-  updatedButton.textContent = `Updated ${clock} · ↻ Refresh`;
+function markUpdated(savedAt = Date.now()) {
+  lastUpdateTime = savedAt;
+  updatedButton.textContent = t("updated", { time: fmtClock(new Date(savedAt)) });
+}
+
+function markUpdating() {
+  updatedButton.textContent = t("updating");
 }
 
 function markUpdateFailed() {
-  updatedButton.textContent = "Update failed · ↻ Try again";
+  updatedButton.textContent = t("updateFailed");
 }
 
+// Reload the weather (and the favorites). Returns a promise, so pull-to-refresh knows when it's done.
 function refreshWeather() {
-  const place = currentPlace || loadLastPlace() || DEFAULT_PLACE;
-  updatedButton.textContent = "Updating…";
-  getWeather(place.name, place.latitude, place.longitude);
-  renderFavorites();
+  const place = currentPlace || startPlace();
+  return Promise.all([getWeather(place.name, place.latitude, place.longitude), renderFavorites()]);
 }
 
 function refreshIfStale() {
-  if (!document.hidden && Date.now() - lastUpdateTime > STALE_AFTER) refreshWeather();
+  if (!document.hidden && navigator.onLine && Date.now() - lastUpdateTime > STALE_AFTER) refreshWeather();
 }
 
 updatedButton.addEventListener("click", refreshWeather);
-document.addEventListener("visibilitychange", refreshIfStale); // when you come back to the tab
+document.addEventListener("visibilitychange", refreshIfStale); // when you come back to the app
 setInterval(refreshIfStale, 60 * 1000); // and a check once a minute
 
-// ---- Remember the last city ----
+// ---- Message banner (offline, errors) ----
+function showBanner(text) {
+  document.getElementById("banner-text").textContent = text;
+  document.getElementById("banner").hidden = false;
+}
+
+function hideBanner() {
+  document.getElementById("banner").hidden = true;
+}
+
+document.getElementById("banner-retry").addEventListener("click", refreshWeather);
+window.addEventListener("online", () => {
+  hideBanner();
+  refreshWeather();
+});
+window.addEventListener("offline", () => {
+  if (latestWeather) showBanner(t("offlineBanner", { time: fmtClock(new Date(lastUpdateTime)) }));
+});
+
+// ---- Which city to open: the chosen start city, else the last one viewed, else Galați ----
 function saveLastPlace(place) {
-  try {
-    localStorage.setItem("lastPlace", JSON.stringify(place));
-  } catch (error) {
-    console.error(error);
-  }
+  store.set("lastPlace", place);
+}
+
+function validPlace(place) {
+  return place && typeof place.latitude === "number" && typeof place.longitude === "number" ? place : null;
 }
 
 function loadLastPlace() {
-  try {
-    const place = JSON.parse(localStorage.getItem("lastPlace"));
-    if (place && typeof place.latitude === "number" && typeof place.longitude === "number") return place;
-  } catch (error) {}
-  return null;
+  return validPlace(store.get("lastPlace"));
+}
+
+function startPlace() {
+  return validPlace(store.get("startCity")) || loadLastPlace() || DEFAULT_PLACE;
 }
 
 // ---- Use my location ----
+// Turns coordinates into "Galați, RO". BigDataCloud's free API is made for exactly this
+// (a browser asking about its own location), and needs no key.
+async function placeName(latitude, longitude) {
+  const url =
+    `https://api.bigdatacloud.net/data/reverse-geocode-client` +
+    `?latitude=${latitude}&longitude=${longitude}&localityLanguage=${lang}`;
+  const data = await fetchJSON(url, { timeout: 6000, retries: 0 });
+  const name = data.city || data.locality || data.principalSubdivision;
+  return name ? (data.countryCode ? `${name}, ${data.countryCode}` : name) : null;
+}
+
 locButton.addEventListener("click", () => {
   if (!navigator.geolocation) {
-    geoNote.textContent = "Your browser doesn't support location.";
+    geoNote.textContent = t("noGeo");
     return;
   }
 
-  geoNote.textContent = "Finding your location…";
+  geoNote.textContent = t("findingLocation");
   locButton.disabled = true;
 
   navigator.geolocation.getCurrentPosition(
-    (position) => {
-      locButton.disabled = false;
-      geoNote.textContent = "";
+    async (position) => {
       // 2 decimals is about 1 km: plenty for weather, and kinder to your privacy
       const latitude = Number(position.coords.latitude.toFixed(2));
       const longitude = Number(position.coords.longitude.toFixed(2));
-      getWeather("My location", latitude, longitude);
+
+      let name = null;
+      try {
+        name = await placeName(latitude, longitude);
+      } catch (error) {
+        console.warn("Place name unavailable:", error.message);
+      }
+
+      locButton.disabled = false;
+      geoNote.textContent = "";
+      getWeather(name || t("myLocation"), latitude, longitude);
     },
     (error) => {
       locButton.disabled = false;
-      geoNote.textContent =
-        error.code === 1
-          ? "Location permission was denied. You can allow it in the browser's site settings."
-          : "Couldn't find your location. Try again, or search for a city.";
+      geoNote.textContent = error.code === 1 ? t("geoDenied") : t("geoFailed");
     },
     { timeout: 10000, maximumAge: 10 * 60 * 1000 }
   );
@@ -82,16 +119,7 @@ locButton.addEventListener("click", () => {
 
 // ---- Collapsible sections remember if they were open ----
 document.querySelectorAll("details.fold").forEach((fold) => {
-  try {
-    const saved = localStorage.getItem("fold:" + fold.id);
-    if (saved !== null) fold.open = saved === "open";
-  } catch (error) {}
-
-  fold.addEventListener("toggle", () => {
-    try {
-      localStorage.setItem("fold:" + fold.id, fold.open ? "open" : "closed");
-    } catch (error) {
-      console.error(error);
-    }
-  });
+  const saved = store.get("fold:" + fold.id);
+  if (saved !== null) fold.open = saved === "open";
+  fold.addEventListener("toggle", () => store.set("fold:" + fold.id, fold.open ? "open" : "closed"));
 });

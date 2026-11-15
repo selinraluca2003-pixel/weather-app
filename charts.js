@@ -1,13 +1,20 @@
 // ----- Temperature chart (SVG): real temperature + dashed feels-like line -----
+const chartArgs = {}; // last drawing of each chart, so it can be redrawn at a new width
+
 function drawTempChart(containerId, data, from, to, nowIndex) {
   const box = document.getElementById(containerId);
+  chartArgs[containerId] = [data, from, to, nowIndex];
+  to = Math.min(to, data.hourly.time.length);
   const temps = data.hourly.temperature_2m.slice(from, to);
   const feels = data.hourly.apparent_temperature.slice(from, to);
   const times = data.hourly.time.slice(from, to);
   const n = temps.length;
   if (n < 2) return;
 
-  const W = 360, H = 170;
+  // Draw at the real width (so text keeps its size on big screens). Hidden charts use 360 until shown.
+  const W = box.clientWidth > 0 ? Math.max(300, box.clientWidth - 12) : 360;
+  const H = 170;
+  box.dataset.drawnWidth = W;
   const padX = 22, padTop = 30, padBottom = 28;
 
   // The scale must fit BOTH lines, or one could run off the chart
@@ -29,7 +36,7 @@ function drawTempChart(containerId, data, from, to, nowIndex) {
   let ticks = "";
   times.forEach((time, k) => {
     if (Number(time.slice(11, 13)) % 6 === 0) {
-      ticks += `<text class="chart-label" x="${x(k).toFixed(1)}" y="${H - 8}" text-anchor="middle">${time.slice(11, 16)}</text>`;
+      ticks += `<text class="chart-label" x="${x(k).toFixed(1)}" y="${H - 8}" text-anchor="middle">${fmtTime(time)}</text>`;
     }
   });
 
@@ -41,7 +48,10 @@ function drawTempChart(containerId, data, from, to, nowIndex) {
   const mark = (k, above) => `
     <circle class="chart-dot" cx="${x(k).toFixed(1)}" cy="${y(temps[k]).toFixed(1)}" r="3.5"/>
     <text class="chart-value" x="${x(k).toFixed(1)}" y="${(y(temps[k]) + (above ? -9 : 17)).toFixed(1)}" text-anchor="middle">${Math.round(temps[k])}°</text>`;
-  let extremes = mark(kMax, true);
+  // The peak's label goes below its dot when it would bump into the "Now" label at the top
+  const kNowCheck = nowIndex - from;
+  const peakNearNow = kNowCheck >= 0 && kNowCheck < n && Math.abs(x(kMax) - x(kNowCheck)) < 70 && y(temps[kMax]) < padTop + 20;
+  let extremes = mark(kMax, !peakNearNow);
   if (kMin !== kMax) extremes += mark(kMin, false);
 
   // "Now" marker with both values
@@ -57,12 +67,12 @@ function drawTempChart(containerId, data, from, to, nowIndex) {
       <line class="chart-now" x1="${xNow.toFixed(1)}" y1="${padTop - 12}" x2="${xNow.toFixed(1)}" y2="${H - padBottom}"/>
       <circle class="chart-feels-dot" cx="${xNow.toFixed(1)}" cy="${y(feels[kNow]).toFixed(1)}" r="3.5"/>
       <circle class="chart-dot" cx="${xNow.toFixed(1)}" cy="${y(temps[kNow]).toFixed(1)}" r="4.5"/>
-      <text class="chart-label" x="${labelX.toFixed(1)}" y="${padTop - 16}" text-anchor="${anchor}">Now ${Math.round(temps[kNow])}° · feels ${Math.round(feels[kNow])}°</text>`;
+      <text class="chart-label" x="${labelX.toFixed(1)}" y="${padTop - 16}" text-anchor="${anchor}">${t("chartNow", { t: Math.round(temps[kNow]), f: Math.round(feels[kNow]) })}</text>`;
   }
 
   const gradient = "grad-" + containerId;
   box.innerHTML = `
-    <svg class="chart-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Temperature and feels-like chart">
+    <svg class="chart-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${t("chartAria")}">
       <defs>
         <linearGradient id="${gradient}" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stop-color="#fff" stop-opacity="0.35"/>
@@ -77,7 +87,24 @@ function drawTempChart(containerId, data, from, to, nowIndex) {
       ${ticks}
     </svg>
     <div class="chart-legend">
-      <span><i class="lg lg-solid"></i>Temperature</span>
-      <span><i class="lg lg-dash"></i>Feels like</span>
+      <span><i class="lg lg-solid"></i>${t("temperature")}</span>
+      <span><i class="lg lg-dash"></i>${t("feelsLike")}</span>
     </div>`;
 }
+
+// Redraw charts that became visible or changed size (opening a tab, rotating the phone, resizing the window)
+function redrawVisibleCharts() {
+  for (const [id, args] of Object.entries(chartArgs)) {
+    const box = document.getElementById(id);
+    if (box.clientWidth > 0 && Number(box.dataset.drawnWidth) !== Math.max(300, box.clientWidth - 12)) {
+      drawTempChart(id, ...args);
+    }
+  }
+}
+
+document.addEventListener("pagechange", () => requestAnimationFrame(redrawVisibleCharts));
+let chartResizeTimer = null;
+window.addEventListener("resize", () => {
+  clearTimeout(chartResizeTimer);
+  chartResizeTimer = setTimeout(redrawVisibleCharts, 150);
+});

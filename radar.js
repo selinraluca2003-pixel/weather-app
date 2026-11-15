@@ -63,16 +63,22 @@ function showRadarFrame(i) {
   radar.layers[i].setOpacity(0.75);
 
   radarSlider.value = i;
+  refreshRadarLabel();
+}
+
+// "18:20 (7 min ago)" under the map
+function refreshRadarLabel() {
+  const frame = radar.frames[radar.index];
+  if (!frame) return;
   const when = new Date(frame.time * 1000);
-  const clock = when.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
   const minutesAgo = Math.max(0, Math.round((Date.now() - when.getTime()) / 60000));
-  radarTime.textContent = `${clock} (${minutesAgo} min ago)`;
+  radarTime.textContent = t("radarAgo", { clock: fmtClock(when), n: minutesAgo });
 }
 
 async function loadRadarFrames() {
+  radarTime.textContent = t("loading");
   try {
-    const response = await fetch("https://api.rainviewer.com/public/weather-maps.json");
-    const data = await response.json();
+    const data = await fetchJSON("https://api.rainviewer.com/public/weather-maps.json");
 
     stopRadar();
     radar.layers.forEach((layer) => layer && radar.map.removeLayer(layer));
@@ -87,7 +93,7 @@ async function loadRadarFrames() {
     showRadarFrame(0);
     startRadar();
   } catch (error) {
-    radarTime.textContent = "Radar unavailable";
+    radarTime.textContent = t("radarUnavailable");
     console.error(error);
   }
 }
@@ -123,10 +129,8 @@ radarSlider.addEventListener("input", () => {
   showRadarFrame(Number(radarSlider.value));
 });
 
-// Tabs: open the radar on its tab, pause it when you leave
-document.querySelectorAll(".tab").forEach((tab) => {
-  tab.addEventListener("click", () => {
-    if (tab.dataset.page === "page-radar") openRadar();
-    else stopRadar();
-  });
+// Open the radar on its tab (by tapping or swiping), pause it when you leave
+document.addEventListener("pagechange", (event) => {
+  if (event.detail.pageId === "page-radar") openRadar();
+  else if (radar.map) stopRadar();
 });
